@@ -9,3 +9,6 @@ edition = "2018"
 [dependencies]
 #slack = "0.22.0"
 slack = { git = "https://github.com/ishikado/slack-rs.git" }
+log = "0.4.0"
+env_logger = "0.6.2"
+getopts = "0.2"

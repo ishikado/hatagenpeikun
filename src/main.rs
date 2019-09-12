@@ -23,17 +23,60 @@
 
 use slack::RtmClient;
 use rust_test_bot::event_handler::MyHandler;
+use std::env;
+use log::{error};
+use getopts::Options;
+
+fn print_usage(program : &str, opts: Options){
+    let brief = format!("Usage : {} SLACK_API_TOKEN [options]",  program);
+    println!("{}", opts.usage(&brief));
+}
 
 fn main() {
+
     let args: Vec<String> = std::env::args().collect();
-    let api_key = match args.len() {
-        0 | 1 => panic!("No api-key in args! Usage: cargo run --example slack_example -- <api-key>"),
-        x => args[x - 1].clone(),
+
+    let mut opts = Options::new();
+    opts.optopt("l", "loglevel", "set loglevel", "debug | info | warn | error");
+    opts.optflag("h", "help", "print this help menu");
+
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => { m }
+        Err(f) => { panic!(f.to_string()) }
     };
+
+    // help
+    if matches.opt_present("h") {
+        print_usage(&args[0], opts);
+        return;
+    }
+
+    let loglevel : String = 
+        match matches.opt_str("l") {
+            Some(level) => level,
+            _ => "info".to_string(), // default log level
+        };
+
+
+    let api_key = if !matches.free.is_empty() {
+        matches.free[0].clone()
+    }
+    else{
+        print_usage(&args[0], opts);
+        return;
+    };
+
+    env::set_var("RUST_LOG", loglevel);
+    env_logger::init();
+
+
     let mut handler = MyHandler::new();
     let r = RtmClient::login_and_run(&api_key, &mut handler);
     match r {
         Ok(_) => {}
-        Err(err) => panic!("Error: {}", err),
+        Err(err) => {
+            error!("Error: {}", err);
+            return;
+        }
     }
 }

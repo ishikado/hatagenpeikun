@@ -19,6 +19,8 @@
 
 
 use slack::{Event, RtmClient};
+use std::env;
+use log::{error, warn, info, debug};
 
 
 pub struct MyHandler {
@@ -35,7 +37,7 @@ impl MyHandler {
 #[allow(unused_variables)]
 impl slack::EventHandler for MyHandler {
     fn on_event(&mut self, cli: &RtmClient, event: Event) {
-        println!("on_event(event: {:?})", event);
+        debug!("on_event(event: {:?})", event);
         match event {
             Event::Hello => {
                 // // hello を受け取ったら、hello worldを #general に投稿する
@@ -49,11 +51,11 @@ impl slack::EventHandler for MyHandler {
     }
 
     fn on_close(&mut self, cli: &RtmClient) {
-        println!("on_close");
+        info!("on_close");
     }
 
     fn on_connect(&mut self, cli: &RtmClient) {
-        println!("on_connect");
+        info!("on_connect");
         // find the general channel id from the `StartResponse`
         let general_channel_id = cli.start_response()
             .channels
