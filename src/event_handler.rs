@@ -21,7 +21,7 @@
 use slack::{Event, RtmClient};
 use std::env;
 use log::{error, warn, info, debug};
-
+use slack::api::{Message, MessageStandard};
 
 pub struct MyHandler {
     test_channel_id : String
@@ -44,9 +44,15 @@ impl slack::EventHandler for MyHandler {
                 // let general_channel_id = &self.test_channel_id;
                 // let _ = cli.sender().send_message(&general_channel_id, "Hello world! (rtm)");
             },
-            _ => {
-                
+            Event::Message(m) => {
+                match *m {
+                    Message::Standard(ms) => {
+                        
+                    }
+                    _ => {}
+                }
             }
+            _ => {}
         }
     }
 
