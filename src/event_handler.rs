@@ -16,15 +16,17 @@
 //
 // This is a simple example of using slack-rs.
 //
+
 use slack::{Event, RtmClient};
 use log::{error, warn, info, debug};
 use slack::api::{Message, MessageStandard};
 use slack::api::rtm::StartResponse;
 
-
-#[derive(Debug)]
+#[derive(Debug, Fail)]
 enum EventHandlerError {
+    #[fail(display = "text_not_found")]
     TextNotFound,
+    #[fail(display = "channel_not_found")]
     ChannelNotFound
 }
 
@@ -40,7 +42,7 @@ impl MyHandler {
                          myuid : "".to_string()
         };
     }
-    fn on_message(&mut self, cli: &RtmClient, message : &Message) -> Result<(), EventHandlerError> {
+    fn on_message(&mut self, cli: &RtmClient, message : &Message) -> Result<(), failure::Error> {
         match message {
             Message::Standard(ms) => {
                 // 自分へのメンションに対する処理
