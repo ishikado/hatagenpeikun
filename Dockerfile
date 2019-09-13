@@ -16,7 +16,5 @@ RUN $HOME/.cargo/bin/cargo
 # fix me!!
 COPY . rust_test_bot
 
-ARG SLACK_API_TOKEN
 RUN cd rust_test_bot && $HOME/.cargo/bin/cargo build
-
-#CMD cd rust_test_bot && $HOME/.cargo/bin/cargo run -- $SLACK_API_TOKEN -l debug
+CMD cd rust_test_bot && $HOME/.cargo/bin/cargo run -- $SLACK_API_TOKEN -l debug
