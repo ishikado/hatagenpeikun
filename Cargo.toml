@@ -12,3 +12,4 @@ slack = { git = "https://github.com/ishikado/slack-rs.git" }
 log = "0.4.0"
 env_logger = "0.6.2"
 getopts = "0.2"
+failure = "0.1.5"

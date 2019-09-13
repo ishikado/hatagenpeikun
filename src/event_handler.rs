@@ -16,23 +16,54 @@
 //
 // This is a simple example of using slack-rs.
 //
-
-
 use slack::{Event, RtmClient};
-use std::env;
 use log::{error, warn, info, debug};
 use slack::api::{Message, MessageStandard};
+use slack::api::rtm::StartResponse;
 
+
+#[derive(Debug)]
+enum EventHandlerError {
+    TextNotFound,
+    ChannelNotFound
+}
+
+#[derive(Debug)]
 pub struct MyHandler {
-    test_channel_id : String
+    start_response : Option<StartResponse>,
+    myuid : String
 }
 
 impl MyHandler {
     pub fn new() -> MyHandler {
-        return MyHandler{test_channel_id : "".to_string()};
+        return MyHandler{start_response : None,
+                         myuid : "".to_string()
+        };
     }
+    fn on_message(&mut self, cli: &RtmClient, message : &Message) -> Result<(), EventHandlerError> {
+        match message {
+            Message::Standard(ms) => {
+                // 自分へのメンションに対する処理
+                {
+                    let text : &String = ms.text.as_ref().ok_or(EventHandlerError::TextNotFound)?;
+                    let chid : &String = ms.channel.as_ref().ok_or(EventHandlerError::ChannelNotFound)?;
+                    let bot_id = &ms.bot_id;
+                    // botのmentionには反応しない
+                    if *bot_id == None {
+                        if text.find(self.myuid.as_str()) != None {
+                            // TODO : textから、メンション文字列を消す
+                            let _ = cli.sender().send_message(chid, text);
+                        }
+                    }
+                    // debug!("message.txt = {:?}", ms.text);
+                }
+            }
+            _ => {
+            }
+        }
+        return Ok(());
+    }        
 }
-
 
 #[allow(unused_variables)]
 impl slack::EventHandler for MyHandler {
@@ -40,16 +71,13 @@ impl slack::EventHandler for MyHandler {
         debug!("on_event(event: {:?})", event);
         match event {
             Event::Hello => {
-                // // hello を受け取ったら、hello worldを #general に投稿する
-                // let general_channel_id = &self.test_channel_id;
-                // let _ = cli.sender().send_message(&general_channel_id, "Hello world! (rtm)");
             },
             Event::Message(m) => {
-                match *m {
-                    Message::Standard(ms) => {
-                        
+                match self.on_message(cli, &(*m)) {
+                    Ok(()) => {}
+                    Err(err) => {
+                        warn!("Error occured ! = {:?}", err);
                     }
-                    _ => {}
                 }
             }
             _ => {}
@@ -62,22 +90,15 @@ impl slack::EventHandler for MyHandler {
 
     fn on_connect(&mut self, cli: &RtmClient) {
         info!("on_connect");
-        // find the general channel id from the `StartResponse`
-        let general_channel_id = cli.start_response()
-            .channels
+        let uid = cli.start_response()
+            .slf
             .as_ref()
-            .and_then(|channels| {
-                channels
-                    .iter()
-                    .find(|chan| match chan.name {
-                        None => false,
-                        Some(ref name) => name == "general",
-                    })
-            })
-            .and_then(|chan| chan.id.as_ref())
-            .expect("general channel not found");
-        self.test_channel_id = general_channel_id.clone();
-        let _ = cli.sender().send_message(&general_channel_id, "Hello world! (rtm)");
+            .and_then(|user| {
+                user.id.as_ref()
+            }).expect("user.id is not found").clone();
+
+        self.start_response = Some(cli.start_response().clone());
+        self.myuid = uid;
         // Send a message over the real time api websocket
     }
 }
