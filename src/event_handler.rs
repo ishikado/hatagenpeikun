@@ -38,26 +38,32 @@ pub struct MyHandler {
 
 impl MyHandler {
     pub fn new() -> MyHandler {
-        return MyHandler{start_response : None,
-                         myuid : "".to_string()
+        return MyHandler{
+            start_response : None,
+            myuid : "".to_string()
         };
     }
     fn on_message(&mut self, cli: &RtmClient, message : &Message) -> Result<(), failure::Error> {
         match message {
             Message::Standard(ms) => {
-                // 自分へのメンションに対する処理
-                {
+                let bot_id = &ms.bot_id;
+                if *bot_id == None {
                     let text : &String = ms.text.as_ref().ok_or(EventHandlerError::TextNotFound)?;
                     let chid : &String = ms.channel.as_ref().ok_or(EventHandlerError::ChannelNotFound)?;
-                    let bot_id = &ms.bot_id;
-                    // botのmentionには反応しない
-                    if *bot_id == None {
-                        if text.find(self.myuid.as_str()) != None {
-                            // TODO : textから、メンション文字列を消す
-                            let _ = cli.sender().send_message(chid, text);
+                    // 自分へのメンションに対する処理
+                    {
+                        // botのコメントには反応しない
+                        if let Some(pos) = text.find(self.myuid.as_str()) {
+                            // textから、メンション文字列を消す
+                            let text_without_mention = &text[(pos+self.myuid.len()+1)..].trim_start().to_string();
+                            // メンションに対する処理
+                            self.on_mention(cli, chid, text_without_mention);
                         }
                     }
-                    // debug!("message.txt = {:?}", ms.text);
+                    // メッセージ全般に対する処理
+                    {
+                        
+                    }
                 }
             }
             _ => {
@@ -65,6 +71,15 @@ impl MyHandler {
         }
         return Ok(());
     }        
+
+    fn on_mention(&mut self, cli: &RtmClient, chid : &String, text_without_mention : &String) {
+        // TODO: メンションに対する処理をきちんと行う
+        
+
+        // メンション文字を消した文字列を送る
+        let _ = cli.sender().send_message(chid, text_without_mention);
+    }
+
 }
 
 #[allow(unused_variables)]
