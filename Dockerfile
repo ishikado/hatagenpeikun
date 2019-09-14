@@ -13,8 +13,17 @@ RUN $HOME/.cargo/bin/cargo
 
 #RUN --mount=type=secret,id=ssh,target=/root/.ssh/id_rsa git clone git@bitbucket.org:ishikado/rust_test_bot.git
 
+
+ARG LOG_LEVEL
+ARG SLACK_API_TOKEN
+
+ENV LEVEL $LOG_LEVEL
+ENV TOKEN $SLACK_API_TOKEN
+
+
 # fix me!!
 COPY . rust_test_bot
 
+
 RUN cd rust_test_bot && $HOME/.cargo/bin/cargo build
-CMD cd rust_test_bot && $HOME/.cargo/bin/cargo run -- $SLACK_API_TOKEN -l $LOG_LEVEL
+CMD ["sh", "-c", "cd rust_test_bot && $HOME/.cargo/bin/cargo run -- $TOKEN -l $LEVEL"]
