@@ -18,8 +18,8 @@
 //
 
 use slack::{Event, RtmClient};
-use log::{error, warn, info, debug};
-use slack::api::{Message, MessageStandard};
+use log::{warn, info, debug};
+use slack::api::{Message};
 use slack::api::rtm::StartResponse;
 
 #[derive(Debug, Fail)]
@@ -47,22 +47,18 @@ impl MyHandler {
         match message {
             Message::Standard(ms) => {
                 let bot_id = &ms.bot_id;
+                // botのコメントには反応しない
                 if *bot_id == None {
                     let text : &String = ms.text.as_ref().ok_or(EventHandlerError::TextNotFound)?;
                     let chid : &String = ms.channel.as_ref().ok_or(EventHandlerError::ChannelNotFound)?;
-                    // 自分へのメンションに対する処理
-                    {
-                        // botのコメントには反応しない
-                        if let Some(pos) = text.find(self.myuid.as_str()) {
-                            // textから、メンション文字列を消す
-                            let text_without_mention = &text[(pos+self.myuid.len()+1)..].trim_start().to_string();
-                            // メンションに対する処理
-                            self.on_mention(cli, chid, text_without_mention);
-                        }
-                    }
-                    // メッセージ全般に対する処理
-                    {
-                        
+                    if let Some(pos) = text.find(self.myuid.as_str()) {
+                        // 自分へのメンションに対する処理
+                        // textから、メンション文字列を消す
+                        let text_without_mention = &text[(pos+self.myuid.len()+1)..].trim_start().to_string();
+                        // メンションに対する処理
+                        self.on_mention(cli, chid, text_without_mention);
+                        // メッセージ全般に対する処理
+                        self.on_standard_message(cli, chid, message);
                     }
                 }
             }
@@ -72,13 +68,45 @@ impl MyHandler {
         return Ok(());
     }        
 
-    fn on_mention(&mut self, cli: &RtmClient, chid : &String, text_without_mention : &String) {
-        // TODO: メンションに対する処理をきちんと行う
-        
-
-        // メンション文字を消した文字列を送る
-        let _ = cli.sender().send_message(chid, text_without_mention);
+    fn on_standard_message(&mut self, _cli: &RtmClient, _chid : &String, _message : &Message) {
+        // do_nothing
     }
+
+    fn on_mention(&mut self, cli: &RtmClient, chid : &String, text_without_mention : &String) {
+        // 正規表現と、関数をペアにしたテーブルを定義しておきたい
+        // 命令 [arg] のフォーマットで命令を送る
+        // この形式にマッチしない場合は何もしない
+
+        /*
+        TODO:
+        [(命令の名前、呼び出す関数名、doc)]
+        という形式のリストを作って、iterateして、命令の名前がマッチするそれぞれの関数に対して処理を行わせる形式にしたい
+        関数をどこに定義するかはちょっと考え中
+        MyHandlerから分離して、MentionHandlerとかそんな感じの構造体を用意、そこに implしてしまえばいい気がする
+        量が多い場合は、モジュール自体分けてもいいかもしれない
+         */
+
+        // echo
+        {
+            let echo = "echo".to_string();
+            if let Some(_pos) = text_without_mention.find(echo.as_str()) {
+                // echo の命令列は消して送る
+                let echo_arg = &text_without_mention[echo.len()..].trim_start().to_string();
+                self.on_echo(cli, chid, echo_arg);
+            }
+        }
+        
+    }
+
+    fn on_echo(&mut self, cli: &RtmClient, chid : &String, echo_arg : &String) {
+        if echo_arg.len() > 0 {
+            let _ = cli.sender().send_message(chid, echo_arg);
+        }
+        else{
+            info!("echo_arg.len() == 0, so can't send echo message to slack");
+        }
+    }
+    
 
 }
 

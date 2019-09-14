@@ -17,4 +17,4 @@ RUN $HOME/.cargo/bin/cargo
 COPY . rust_test_bot
 
 RUN cd rust_test_bot && $HOME/.cargo/bin/cargo build
-CMD cd rust_test_bot && $HOME/.cargo/bin/cargo run -- $SLACK_API_TOKEN -l debug
+CMD cd rust_test_bot && $HOME/.cargo/bin/cargo run -- $SLACK_API_TOKEN -l $LOG_LEVEL
