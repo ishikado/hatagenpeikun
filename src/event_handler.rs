@@ -87,7 +87,6 @@ impl MyHandler {
          */
 
         // echo
-
         {
             // doc:
             // echo arg という形式で受け付ける
@@ -102,14 +101,15 @@ impl MyHandler {
     }
 
     fn on_echo(&mut self, cli: &RtmClient, chid : &String, echo_arg : &String) {
+        info!("called on _echo : args ~ {}", echo_arg);
         if echo_arg.len() > 0 {
             let _ = cli.sender().send_message(chid, echo_arg);
         }
         else{
-            info!("echo_arg.len() == 0, so can't send echo message to slack");
+            warn!("echo_arg.len() == 0, so can't send echo message to slack");
         }
     }
-    
+
 
 }
 
