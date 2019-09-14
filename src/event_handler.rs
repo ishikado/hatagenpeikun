@@ -87,10 +87,13 @@ impl MyHandler {
          */
 
         // echo
+
         {
+            // doc:
+            // echo arg という形式で受け付ける
+            // arg を、メンションが飛んできたチャンネルに送る
             let echo = "echo".to_string();
             if let Some(_pos) = text_without_mention.find(echo.as_str()) {
-                // echo の命令列は消して送る
                 let echo_arg = &text_without_mention[echo.len()..].trim_start().to_string();
                 self.on_echo(cli, chid, echo_arg);
             }
