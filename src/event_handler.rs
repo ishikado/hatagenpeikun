@@ -27,7 +27,7 @@ enum EventHandlerError {
     #[fail(display = "text_not_found")]
     TextNotFound,
     #[fail(display = "channel_not_found")]
-    ChannelNotFound
+    ChannelNotFound,
 }
 
 #[derive(Debug)]
@@ -56,9 +56,9 @@ impl MyHandler {
                         // textから、メンション文字列を消す
                         let text_without_mention = &text[(pos+self.myuid.len()+1)..].trim_start().to_string();
                         // メンションに対する処理
-                        self.on_mention(cli, chid, text_without_mention);
+                        self.on_mention(cli, chid, text_without_mention)?;
                         // メッセージ全般に対する処理
-                        self.on_standard_message(cli, chid, message);
+                        self.on_standard_message(cli, chid, message)?;
                     }
                 }
             }
@@ -68,11 +68,11 @@ impl MyHandler {
         return Ok(());
     }        
 
-    fn on_standard_message(&mut self, _cli: &RtmClient, _chid : &String, _message : &Message) {
-        // do_nothing
+    fn on_standard_message(&mut self, _cli: &RtmClient, _chid : &String, _message : &Message) -> Result<(), failure::Error> {
+        return Ok(());
     }
 
-    fn on_mention(&mut self, cli: &RtmClient, chid : &String, text_without_mention : &String) {
+    fn on_mention(&mut self, cli: &RtmClient, chid : &String, text_without_mention : &String) -> Result<(), failure::Error> {
         // 正規表現と、関数をペアにしたテーブルを定義しておきたい
         // 命令 [arg] のフォーマットで命令を送る
         // この形式にマッチしない場合は何もしない
@@ -94,13 +94,14 @@ impl MyHandler {
             let echo = "echo".to_string();
             if let Some(_pos) = text_without_mention.find(echo.as_str()) {
                 let echo_arg = &text_without_mention[echo.len()..].trim_start().to_string();
-                self.on_echo(cli, chid, echo_arg);
+                self.on_echo(cli, chid, echo_arg)?;
             }
         }
-        
+
+        return Ok(());
     }
 
-    fn on_echo(&mut self, cli: &RtmClient, chid : &String, echo_arg : &String) {
+    fn on_echo(&mut self, cli: &RtmClient, chid : &String, echo_arg : &String) -> Result<(), failure::Error> {
         info!("called on _echo : args ~ {}", echo_arg);
         if echo_arg.len() > 0 {
             let _ = cli.sender().send_message(chid, echo_arg);
@@ -108,8 +109,8 @@ impl MyHandler {
         else{
             warn!("echo_arg.len() == 0, so can't send echo message to slack");
         }
+        return Ok(());
     }
-
 
 }
 
