@@ -8,8 +8,6 @@ SHELL ["/bin/zsh", "-c"]
 RUN curl https://sh.rustup.rs > setup.sh
 RUN sh setup.sh -y
 
-#RUN echo 'export "PATH=$HOME/.cargo/bin":$PATH' >> ~/.zshrc
-
 ARG LOG_LEVEL
 ARG SLACK_API_TOKEN
 
