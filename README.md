@@ -1,12 +1,25 @@
 # これは何
 Rust製のSlack Botのテスト実装。  
 
+
+# 使い方
+## ビルド方法
+```
+$ cargo build
+```
+
+## 起動方法
+```
+$ cargo run -- $slack_api_token -l $log_level
+```
+
+
 # Dockerfile
 dockerを利用することで、build && bot の起動、まで一気に行うことができる。
 
 ## ビルド方法（例）
 ```
-$ docker build ./ -t $image_name --build-arg SLACK_API_TOKEN=$toke --build-arg LOG_LEVEL=$level
+$ docker build ./ -t $image_name --build-arg SLACK_API_TOKEN=$slack_api_token --build-arg LOG_LEVEL=$log_level
 % slack_api_token と、 loglevel を指定する必要がある。
 ```
 ## 起動方法（例）
@@ -22,8 +35,8 @@ build:
   docker:
     worker: Dockerfile
   config:
-    SLACK_API_TOKEN: $token
-    LOG_LEVEL: $level
+    SLACK_API_TOKEN: $slack_api_token
+    LOG_LEVEL: $log_level
 ```
 
 この heroku.yml を、適当にローカルブランチを切って、そのブランチにコミットする（heroku.ymlは、SLACK_API_TOKENを含んでいるため、ソースコード管理している remote にpushしないよう注意）。
