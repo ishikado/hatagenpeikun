@@ -1,2 +1,66 @@
 # これは何
 Rust製のSlack Botのテスト実装。  
+
+# Dockerfile
+dockerを利用することで、build && bot の起動、まで一気に行うことができる。
+
+## ビルド方法（例）
+```
+$ docker build ./ -t $image_name --build-arg SLACK_API_TOKEN=$toke --build-arg LOG_LEVEL=$level
+% slack_api_token と、 loglevel を指定する必要がある。
+```
+## 起動方法（例）
+```
+$ docker run --rm -it testimage
+```
+
+# heroku へのデプロイ方法
+dockerを利用しているので、heroku.ymlを用意することで、デプロイを行うことができる。  
+まず、以下の heroku.yml を、リポジトリルートに準備する（細かい設定に関しては、雨期のリンクも参照  https://devcenter.heroku.com/articles/build-docker-images-heroku-yml）。
+```
+build:
+  docker:
+    worker: Dockerfile
+  config:
+    SLACK_API_TOKEN: $token
+    LOG_LEVEL: $level
+```
+
+この heroku.yml を、適当にローカルブランチを切って、そのブランチにコミットする（heroku.ymlは、SLACK_API_TOKENを含んでいるため、ソースコード管理している remote にpushしないよう注意）。
+```
+$ git checkout -b deploy
+$ git commit -m "add heroku.yml"
+```
+
+まだ heroku に application を作成していない場合、以下のコマンドで application を作成する。
+```
+$ heroku create $app_name
+
+```
+
+次に、stack に container を指定する。
+```
+$ heroku stack:set container
+
+```
+
+次に、herokuのリモートリポジトリに、push する。
+```
+$ git push heroku deploy:master --force
+```
+
+あとは、workerプロセスの数を1にセットすることで、bot が起動する。
+```
+$ heroku scale worker=1
+```
+
+workerプロセスの数を0にセットすると、botが停止する。
+```
+$ heroku scale worker=0
+```
+
+heroku上で動いているプロセスの状態や、ログは以下のコマンドで確認する。
+```
+$ heroku ps
+$ heroku logs
+```
