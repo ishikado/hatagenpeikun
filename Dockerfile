@@ -8,11 +8,7 @@ SHELL ["/bin/zsh", "-c"]
 RUN curl https://sh.rustup.rs > setup.sh
 RUN sh setup.sh -y
 
-ENV PATH $PATH:$HOME/.cargo/bin
-RUN $HOME/.cargo/bin/cargo
-
-#RUN --mount=type=secret,id=ssh,target=/root/.ssh/id_rsa git clone git@bitbucket.org:ishikado/rust_test_bot.git
-
+RUN echo 'export "PATH=$HOME/.cargo/bin":$PATH' >> ~/.zshrc
 
 ARG LOG_LEVEL
 ARG SLACK_API_TOKEN
@@ -20,10 +16,8 @@ ARG SLACK_API_TOKEN
 ENV LEVEL $LOG_LEVEL
 ENV TOKEN $SLACK_API_TOKEN
 
-
 # fix me!!
 COPY . rust_test_bot
 
-
-RUN cd rust_test_bot && $HOME/.cargo/bin/cargo build
-CMD ["sh", "-c", "cd rust_test_bot && $HOME/.cargo/bin/cargo run -- $TOKEN -l $LEVEL"]
+RUN cd rust_test_bot && source ~/.zshrc && cargo build
+CMD ["/bin/zsh", "-c", "cd rust_test_bot && source ~/.zshrc && cargo run -- $TOKEN -l $LEVEL"]
