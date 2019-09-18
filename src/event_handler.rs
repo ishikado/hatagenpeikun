@@ -36,6 +36,7 @@ pub struct MyHandler {
     myuid : String
 }
 
+
 impl MyHandler {
     pub fn new() -> MyHandler {
         return MyHandler{
@@ -86,6 +87,8 @@ impl MyHandler {
         量が多い場合は、モジュール自体分けてもいいかもしれない
          */
 
+        use super::commands::*;
+
         // echo
         {
             // doc:
@@ -94,24 +97,22 @@ impl MyHandler {
             let echo = "echo".to_string();
             if let Some(_pos) = text_without_mention.find(echo.as_str()) {
                 let echo_arg = &text_without_mention[echo.len()..].trim_start().to_string();
-                self.on_echo(cli, chid, echo_arg)?;
+                on_echo(cli, chid, echo_arg)?;
             }
         }
+        // nowtime
+        {
+            // doc:
+            // 現在時刻を返す
+            let nowtime = "nowtime".to_string();
+            if let Some(_pos) = text_without_mention.find(nowtime.as_str()) {
+                on_nowtime(cli, chid)?;
+            }
+            
+        }
 
         return Ok(());
     }
-
-    fn on_echo(&mut self, cli: &RtmClient, chid : &String, echo_arg : &String) -> Result<(), failure::Error> {
-        info!("called on _echo : args ~ {}", echo_arg);
-        if echo_arg.len() > 0 {
-            let _ = cli.sender().send_message(chid, echo_arg);
-        }
-        else{
-            warn!("echo_arg.len() == 0, so can't send echo message to slack");
-        }
-        return Ok(());
-    }
-
 }
 
 #[allow(unused_variables)]
