@@ -19,6 +19,8 @@ pub fn on_echo(cli: &RtmClient, chid : &String, echo_arg : &String) -> Result<()
     return Ok(());
 }
 
+// 現在時刻を取得し、chid で指定されたチャンネルに投稿する
 pub fn on_nowtime(_cli: &RtmClient, _chid : &String) -> Result<(), failure::Error> {
     return Ok(());
 }
+
