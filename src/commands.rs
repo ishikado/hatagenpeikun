@@ -34,7 +34,7 @@ private functions
 */
 
 fn get_nowtime_string() -> String {
-    use chrono::{Utc, Local, DateTime, TimeZone, NaiveDate};
+    use chrono::{Local, DateTime};
     use chrono_tz::Asia::Tokyo;
     let local: DateTime<Local> = Local::now();
     let tokyo = local.with_timezone(&Tokyo);
@@ -47,6 +47,10 @@ tests
 */
 #[test]
 fn get_nowtime_string_test() {
-    // TODO : 正規表現を利用したテストを書く
-    // assert_eq!(get_nowtime_string(), "2019-09-19 11:12:13.581235812 JST");
+    use regex::Regex;
+    // 意図したフォーマットで現在時刻を表す文字列が取得できているかテスト
+    // このフォーマットを想定 : "2019-09-19 11:12:13.581235812 JST" 
+    let re = Regex::new(r"(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2}) (?P<hour>\d{2}):(?P<min>\d{2}):(?P<sec>\d{2}).(?P<decisec>\d{9}) JST").unwrap();
+    let nowtime = get_nowtime_string();
+    let _ = re.captures(&nowtime[..]).unwrap();
 }

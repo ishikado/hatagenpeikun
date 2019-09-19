@@ -4,6 +4,7 @@ extern crate env_logger;
 extern crate getopts;
 extern crate chrono;
 extern crate chrono_tz;
+extern crate regex;
 
 #[macro_use] extern crate failure;
 
