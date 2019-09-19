@@ -1,5 +1,5 @@
 /*
-実際に bot が実行するコマンド
+bot が実行するコマンド
 */
 
 use slack::{RtmClient};
@@ -29,6 +29,11 @@ pub fn on_nowtime(cli: &RtmClient, chid : &String) -> Result<(), failure::Error>
     return Ok(());
 }
 
+pub fn on_help(cli: &RtmClient, chid : &String, docs : Vec<&str>) -> Result<(), failure::Error> {
+    let docstr = docs.iter().fold("".to_string(),|res, doc| format!("{}\n{}", res, doc));
+    let _ = cli.sender().send_message(chid, &docstr);
+    return Ok(());
+}    
 
 /*
 private functions

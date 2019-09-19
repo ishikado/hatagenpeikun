@@ -74,43 +74,53 @@ impl MyHandler {
     }
 
     fn on_mention(&mut self, cli: &RtmClient, chid : &String, text_without_mention : &String) -> Result<(), failure::Error> {
-        // 正規表現と、関数をペアにしたテーブルを定義しておきたい
-        // 命令 [arg] のフォーマットで命令を送る
-        // この形式にマッチしない場合は何もしない
-
-        /*
-        TODO:
-        [(命令の名前、呼び出す関数名、doc)]
-        という形式のリストを作って、iterateして、命令の名前がマッチするそれぞれの関数に対して処理を行わせる形式にしたい
-        関数をどこに定義するかはちょっと考え中
-        MyHandlerから分離して、MentionHandlerとかそんな感じの構造体を用意、そこに implしてしまえばいい気がする
-        量が多い場合は、モジュール自体分けてもいいかもしれない
-         */
-
         use super::commands::*;
 
-        // echo
-        {
-            // doc:
-            // echo arg という形式で受け付ける
-            // arg を、メンションが飛んできたチャンネルに送る
-            let echo = "echo".to_string();
-            if let Some(_pos) = text_without_mention.find(echo.as_str()) {
-                let echo_arg = &text_without_mention[echo.len()..].trim_start().to_string();
-                on_echo(cli, chid, echo_arg)?;
-            }
-        }
-        // nowtime
-        {
-            // doc:
-            // 現在時刻を返す
-            let nowtime = "nowtime".to_string();
-            if let Some(_pos) = text_without_mention.find(nowtime.as_str()) {
-                on_nowtime(cli, chid)?;
-            }
-            
-        }
+        // list of (help以外のcommandのdoc, command実行用クロージャ)
+        let commands : Vec<(&str, Box<dyn Fn() -> Result<(), failure::Error>>)> = vec![
+            ("echo <arg> - <arg> をそのまま返す",
+             Box::new(move || {
+                 let echo = "echo".to_string();
+                 if let Some(_pos) = text_without_mention.find(echo.as_str()) {
+                     let echo_arg = &text_without_mention[echo.len()..].trim_start().to_string();
+                     on_echo(cli, chid, echo_arg)?;
+                 }
+                 return Ok(());
+             })),
+            ("nowtime - 現在時刻を取得する",
+             Box::new(move || {
+                 let nowtime = "nowtime".to_string();
+                 if let Some(_pos) = text_without_mention.find(nowtime.as_str()) {
+                     on_nowtime(cli, chid)?;
+                 }
+                 return Ok(());
+             }))
+        ];
 
+        // helpだけは特別扱い
+        {
+            let docs = commands.iter().map(|(doc, _)| return *doc).collect::<Vec<&str>>();
+            let helpdoc = "help - 使い方を表示する";
+            let docs_with_help = [&docs[..], &vec![helpdoc]].concat();
+
+            let help = "help".to_string();
+            if let Some(_) = text_without_mention.find(help.as_str()) {
+                on_help(cli, chid, docs_with_help)?;
+            }
+        }
+        
+        // help以外のcommandを実行
+        // エラーが出たら終了
+        for (_doc, f) in &commands {
+            match f() {
+                Ok(()) => {
+                    continue;
+                },
+                Err(err) => {
+                    return Err(err);
+                }
+            }
+        }
         return Ok(());
     }
 }
