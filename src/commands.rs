@@ -10,6 +10,7 @@ use log::{warn, info};
 public functions
 */
 
+// メンションされた内容をそのまま送り返す
 pub fn on_echo(cli: &RtmClient, chid : &String, echo_arg : &String) -> Result<(), failure::Error> {
     info!("called on _echo : args ~ {}", echo_arg);
     if echo_arg.len() > 0 {
