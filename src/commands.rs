@@ -6,9 +6,9 @@ use slack::{RtmClient};
 use log::{warn, info};
 
 
-/*
+/*****************
 public functions
-*/
+******************/
 
 // メンションされた内容をそのまま送り返す
 pub fn on_echo(cli: &RtmClient, chid : &String, echo_arg : &String) -> Result<(), failure::Error> {
@@ -35,9 +35,9 @@ pub fn on_help(cli: &RtmClient, chid : &String, docs : Vec<&str>) -> Result<(), 
     return Ok(());
 }    
 
-/*
+/*****************
 private functions
-*/
+******************/
 
 fn get_nowtime_string() -> String {
     use chrono::{Local, DateTime};
@@ -48,9 +48,9 @@ fn get_nowtime_string() -> String {
 }
 
 
-/*
+/*****************
 tests
-*/
+******************/
 #[test]
 fn get_nowtime_string_test() {
     use regex::Regex;
