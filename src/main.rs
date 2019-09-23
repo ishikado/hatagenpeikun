@@ -21,28 +21,32 @@
 // to.
 //
 
-use slack::RtmClient;
-use rust_test_bot::event_handler::MyHandler;
-use std::env;
-use log::{error};
 use getopts::Options;
+use log::error;
+use rust_test_bot::event_handler::MyHandler;
+use slack::RtmClient;
+use std::env;
 
-fn print_usage(program : &str, opts: Options){
-    let brief = format!("Usage : {} SLACK_API_TOKEN [options]",  program);
+fn print_usage(program: &str, opts: Options) {
+    let brief = format!("Usage : {} SLACK_API_TOKEN [options]", program);
     println!("{}", opts.usage(&brief));
 }
 
 fn main() {
-
     let args: Vec<String> = std::env::args().collect();
 
     let mut opts = Options::new();
-    opts.optopt("l", "loglevel", "set loglevel", "debug | info | warn | error");
+    opts.optopt(
+        "l",
+        "loglevel",
+        "set loglevel",
+        "debug | info | warn | error",
+    );
     opts.optflag("h", "help", "print this help menu");
 
     let matches = match opts.parse(&args[1..]) {
-        Ok(m) => { m }
-        Err(f) => { panic!(f.to_string()) }
+        Ok(m) => m,
+        Err(f) => panic!(f.to_string()),
     };
 
     // help
@@ -51,24 +55,20 @@ fn main() {
         return;
     }
 
-    let loglevel : String = 
-        match matches.opt_str("l") {
-            Some(level) => level,
-            _ => "info".to_string(), // default log level
-        };
-
+    let loglevel: String = match matches.opt_str("l") {
+        Some(level) => level,
+        _ => "info".to_string(), // default log level
+    };
 
     let api_key = if !matches.free.is_empty() {
         matches.free[0].clone()
-    }
-    else{
+    } else {
         print_usage(&args[0], opts);
         return;
     };
 
     env::set_var("RUST_LOG", loglevel);
     env_logger::init();
-
 
     let mut handler = MyHandler::new();
     let r = RtmClient::login_and_run(&api_key, &mut handler);

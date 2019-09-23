@@ -17,10 +17,10 @@
 // This is a simple example of using slack-rs.
 //
 
-use slack::{Event, RtmClient};
-use log::{warn, info, debug};
-use slack::api::{Message};
+use log::{debug, info, warn};
 use slack::api::rtm::StartResponse;
+use slack::api::Message;
+use slack::{Event, RtmClient};
 
 #[derive(Debug, Fail)]
 enum EventHandlerError {
@@ -32,30 +32,34 @@ enum EventHandlerError {
 
 #[derive(Debug)]
 pub struct MyHandler {
-    start_response : Option<StartResponse>,
-    myuid : String
+    start_response: Option<StartResponse>,
+    myuid: String,
 }
-
 
 impl MyHandler {
     pub fn new() -> MyHandler {
-        return MyHandler{
-            start_response : None,
-            myuid : "".to_string()
+        return MyHandler {
+            start_response: None,
+            myuid: "".to_string(),
         };
     }
-    fn on_message(&mut self, cli: &RtmClient, message : &Message) -> Result<(), failure::Error> {
+    fn on_message(&mut self, cli: &RtmClient, message: &Message) -> Result<(), failure::Error> {
         match message {
             Message::Standard(ms) => {
                 let bot_id = &ms.bot_id;
                 // botのコメントには反応しない
                 if *bot_id == None {
-                    let text : &String = ms.text.as_ref().ok_or(EventHandlerError::TextNotFound)?;
-                    let chid : &String = ms.channel.as_ref().ok_or(EventHandlerError::ChannelNotFound)?;
+                    let text: &String = ms.text.as_ref().ok_or(EventHandlerError::TextNotFound)?;
+                    let chid: &String = ms
+                        .channel
+                        .as_ref()
+                        .ok_or(EventHandlerError::ChannelNotFound)?;
                     if let Some(pos) = text.find(self.myuid.as_str()) {
                         // 自分へのメンションに対する処理
                         // textから、メンション文字列を消す
-                        let text_without_mention = &text[(pos+self.myuid.len()+1)..].trim_start().to_string();
+                        let text_without_mention = &text[(pos + self.myuid.len() + 1)..]
+                            .trim_start()
+                            .to_string();
                         // メンションに対する処理
                         self.on_mention(cli, chid, text_without_mention)?;
                         // メッセージ全般に対する処理
@@ -63,39 +67,58 @@ impl MyHandler {
                     }
                 }
             }
-            _ => {
-            }
+            _ => {}
         }
-        return Ok(());
-    }        
-
-    fn on_standard_message(&mut self, _cli: &RtmClient, _chid : &String, _message : &Message) -> Result<(), failure::Error> {
         return Ok(());
     }
 
-    fn on_mention(&mut self, cli: &RtmClient, chid : &String, text_without_mention : &String) -> Result<(), failure::Error> {
+    fn on_standard_message(
+        &mut self,
+        _cli: &RtmClient,
+        _chid: &String,
+        _message: &Message,
+    ) -> Result<(), failure::Error> {
+        return Ok(());
+    }
+
+    fn on_mention(
+        &mut self,
+        cli: &RtmClient,
+        chid: &String,
+        text_without_mention: &String,
+    ) -> Result<(), failure::Error> {
         use super::commands::*;
 
         // list of (command名, help以外のcommandのdoc, command実行用クロージャ)
-        let commands : Vec<(&str, &str, Box<dyn Fn(&String) -> Result<(), failure::Error>>)> = vec![
-            ("echo",
-             "echo <arg> - <arg> をそのまま返す",
-             Box::new(move |arg| {
-                 on_echo(cli, chid, arg)?;
-                 return Ok(());
-             })),
-            ("nowtime",
-             "nowtime - 現在時刻を取得する",
-             Box::new(move |_| {
-                 on_nowtime(cli, chid)?;
-                 return Ok(());
-             }
-             ))
+        let commands: Vec<(
+            &str,
+            &str,
+            Box<dyn Fn(&String) -> Result<(), failure::Error>>,
+        )> = vec![
+            (
+                "echo",
+                "echo <arg> - <arg> をそのまま返す",
+                Box::new(move |arg| {
+                    on_echo(cli, chid, arg)?;
+                    return Ok(());
+                }),
+            ),
+            (
+                "nowtime",
+                "nowtime - 現在時刻を取得する",
+                Box::new(move |_| {
+                    on_nowtime(cli, chid)?;
+                    return Ok(());
+                }),
+            ),
         ];
 
         // helpだけは特別扱い
         {
-            let docs = commands.iter().map(|(_, doc, _)| return *doc).collect::<Vec<&str>>();
+            let docs = commands
+                .iter()
+                .map(|(_, doc, _)| return *doc)
+                .collect::<Vec<&str>>();
             let helpdoc = "help - 使い方を表示する";
             let docs_with_help = [&docs[..], &vec![helpdoc]].concat();
             let help = "help".to_string();
@@ -103,21 +126,22 @@ impl MyHandler {
                 on_help(cli, chid, docs_with_help)?;
             }
         }
-        
+
         // help以外のcommandを実行
         // エラーが出たら終了
         for (command_name, _doc, f) in &commands {
             if let Some(_pos) = text_without_mention.find(command_name) {
-                let arg = &text_without_mention[command_name.len()..].trim_start().to_string();
+                let arg = &text_without_mention[command_name.len()..]
+                    .trim_start()
+                    .to_string();
                 match f(arg) {
                     Ok(()) => {
                         continue;
-                    },
+                    }
                     Err(err) => {
                         return Err(err);
                     }
                 }
-                
             }
         }
         return Ok(());
@@ -129,16 +153,13 @@ impl slack::EventHandler for MyHandler {
     fn on_event(&mut self, cli: &RtmClient, event: Event) {
         debug!("on_event(event: {:?})", event);
         match event {
-            Event::Hello => {
-            },
-            Event::Message(m) => {
-                match self.on_message(cli, &(*m)) {
-                    Ok(()) => {}
-                    Err(err) => {
-                        warn!("Error occured ! = {:?}", err);
-                    }
+            Event::Hello => {}
+            Event::Message(m) => match self.on_message(cli, &(*m)) {
+                Ok(()) => {}
+                Err(err) => {
+                    warn!("Error occured ! = {:?}", err);
                 }
-            }
+            },
             _ => {}
         }
     }
@@ -149,12 +170,13 @@ impl slack::EventHandler for MyHandler {
 
     fn on_connect(&mut self, cli: &RtmClient) {
         info!("on_connect");
-        let uid = cli.start_response()
+        let uid = cli
+            .start_response()
             .slf
             .as_ref()
-            .and_then(|user| {
-                user.id.as_ref()
-            }).expect("user.id is not found").clone();
+            .and_then(|user| user.id.as_ref())
+            .expect("user.id is not found")
+            .clone();
 
         self.start_response = Some(cli.start_response().clone());
         self.myuid = uid;
