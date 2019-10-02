@@ -21,9 +21,10 @@
 // to.
 //
 
+
 use getopts::Options;
 use log::error;
-use rust_test_bot::event_handler::MyHandler;
+use hatagenpeikun::event_handler::MyHandler;
 use slack::RtmClient;
 use std::env;
 
