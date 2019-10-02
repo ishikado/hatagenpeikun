@@ -19,7 +19,7 @@
 
 use log::{debug, info, warn};
 use slack::api::rtm::StartResponse;
-use slack::api::Message;
+use slack::api::{Message, MessageStandard};
 use slack::{Event, RtmClient};
 
 #[derive(Debug, Fail)]
@@ -62,9 +62,9 @@ impl MyHandler {
                             .to_string();
                         // メンションに対する処理
                         self.on_mention(cli, chid, text_without_mention)?;
-                        // メッセージ全般に対する処理
-                        self.on_standard_message(cli, chid, message)?;
                     }
+                    // メッセージ全般に対する処理
+                    self.on_standard_message(cli, chid, ms)?;
                 }
             }
             _ => {}
@@ -74,14 +74,16 @@ impl MyHandler {
 
     fn on_standard_message(
         &mut self,
-        _cli: &RtmClient,
-        _chid: &String,
-        _message: &Message,
+        cli: &RtmClient,
+        chid: &String,
+        ms: &MessageStandard,
     ) -> Result<(), failure::Error> {
-        // TODO ﾌﾟﾙﾙﾙ を実装する
+        use super::commands::*;
+
+        let text: &String = ms.text.as_ref().ok_or(EventHandlerError::TextNotFound)?;
+        on_purururu(cli, chid, text)?; 
         
         // TODO 旗源平という発言と、それに対応する slack bot のコメントを見つけたら、結果をカウントする
-
         // ひとまず on memory でカウンタを実装して、最終的には redis に書き込めるようにしたい
 
         return Ok(());

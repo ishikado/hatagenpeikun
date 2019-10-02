@@ -9,9 +9,18 @@ use slack::RtmClient;
 public functions
 ******************/
 
+// ﾌﾟﾙﾙﾙ に反応する
+pub fn on_purururu(cli: &RtmClient, chid: &String, text: &String) -> Result<(), failure::Error>  {
+    info!("called on_purururu, text = {}", text);
+    if let Some(_) = text.find("ﾌﾟﾙﾙﾙ") {
+        let _ = cli.sender().send_message(chid, "ﾌﾟﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙ！");
+    }
+   Ok(())
+}
+
 // メンションされた内容をそのまま送り返す
 pub fn on_echo(cli: &RtmClient, chid: &String, echo_arg: &String) -> Result<(), failure::Error> {
-    info!("called on _echo : args ~ {}", echo_arg);
+    info!("called on_echo, args = {}", echo_arg);
     if echo_arg.len() > 0 {
         let _ = cli.sender().send_message(chid, echo_arg);
     } else {
@@ -22,12 +31,15 @@ pub fn on_echo(cli: &RtmClient, chid: &String, echo_arg: &String) -> Result<(), 
 
 // 現在時刻を取得し、chid で指定されたチャンネルに投稿する
 pub fn on_nowtime(cli: &RtmClient, chid: &String) -> Result<(), failure::Error> {
+    info!("called on_nowtime");
     let nowtimestr = get_nowtime_string();
     let _ = cli.sender().send_message(chid, &nowtimestr);
     return Ok(());
 }
 
 pub fn on_help(cli: &RtmClient, chid: &String, docs: Vec<&str>) -> Result<(), failure::Error> {
+    info!("called on_help");
+    // TODO: 文字列の連結をもう少し洗練された方法で行いたい
     let docstr = docs
         .iter()
         .fold("".to_string(), |res, doc| format!("{}\n{}", res, doc));
