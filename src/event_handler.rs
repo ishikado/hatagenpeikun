@@ -78,6 +78,12 @@ impl MyHandler {
         _chid: &String,
         _message: &Message,
     ) -> Result<(), failure::Error> {
+        // TODO ﾌﾟﾙﾙﾙ を実装する
+        
+        // TODO 旗源平という発言と、それに対応する slack bot のコメントを見つけたら、結果をカウントする
+
+        // ひとまず on memory でカウンタを実装して、最終的には redis に書き込めるようにしたい
+
         return Ok(());
     }
 

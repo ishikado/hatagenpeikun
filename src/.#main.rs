@@ -1,1 +1,0 @@
-takeshi@takeshi-VirtualBox.32185:1569816926
