@@ -1,5 +1,5 @@
 # これは何
-Rust製のSlack Botのテスト実装。  
+Rust製のSlack Bot。  
 
 
 # 使い方
