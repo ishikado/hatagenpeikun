@@ -34,6 +34,7 @@ enum EventHandlerError {
 pub struct MyHandler {
     start_response: Option<StartResponse>,
     myuid: String,
+    myname: String
 }
 
 impl MyHandler {
@@ -41,6 +42,7 @@ impl MyHandler {
         return MyHandler {
             start_response: None,
             myuid: "".to_string(),
+            myname: "".to_string()
         };
     }
     fn on_message(&mut self, cli: &RtmClient, message: &Message) -> Result<(), failure::Error> {
@@ -186,8 +188,13 @@ impl slack::EventHandler for MyHandler {
             .expect("user.id is not found")
             .clone();
 
+        // unwrap しているが、もしここで自分の名前が得られないとおかしいので、クラッシュさせてしまう
+        let myname_with_dblquon = cli.start_response().slf.as_ref().unwrap().name.as_ref().unwrap();
+        let myname = myname_with_dblquon[0..myname_with_dblquon.len()-1].to_string();
+
         self.start_response = Some(cli.start_response().clone());
         self.myuid = uid;
+        self.myname = myname;
         // Send a message over the real time api websocket
     }
 }
