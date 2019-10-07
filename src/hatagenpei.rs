@@ -8,6 +8,7 @@ use std::mem;
 use std::string::ToString;
 
 
+#[derive(Clone)]
 pub struct Score {
     pub score : i32
 }
@@ -24,13 +25,13 @@ impl ToString for Score {
 
 #[derive(Clone)]
 pub struct Player {
-    pub score : i32,
+    pub score : Score,
     pub name : String
 }
 
 impl Player {
-    pub fn new(name : String) -> Player {
-        return Player{score : 0, name : name};
+    pub fn new(name : String, score : Score) -> Player {
+        return Player{score : score, name : name};
     }
 }
 
@@ -51,6 +52,7 @@ pub struct Hatagenpei {
     pub turn : PlayerTurn
 }
 
+#[derive(Debug)]
 pub enum HatagenPeiError {
     Unexpected
 }
@@ -103,65 +105,74 @@ impl Hatagenpei {
     pub fn next(&mut self) -> Vec<String> {
         let mut res = vec![];
 
-        let play_player : &mut Player;
-        let wait_player : &mut Player;
-        let next_turn;
+        {
+            let play_player : &mut Player;
+            let wait_player : &mut Player;
+            let next_turn;
 
-        match self.turn {
-            PlayerTurn::Player1 => {
-                play_player = &mut self.player1;
-                wait_player = &mut self.player2;
-                next_turn = PlayerTurn::Player2;
+            match self.turn {
+                PlayerTurn::Player1 => {
+                    play_player = &mut self.player1;
+                    wait_player = &mut self.player2;
+                    next_turn = PlayerTurn::Player2;
+                }
+                PlayerTurn::Player2 => {
+                    play_player = &mut self.player2;
+                    wait_player = &mut self.player1;
+                    next_turn = PlayerTurn::Player1;
+                }
             }
-            PlayerTurn::Player2 => {
-                play_player = &mut self.player2;
-                wait_player = &mut self.player1;
-                next_turn = PlayerTurn::Player1;
-            }
-        }
 
-        // まだプレイ中でなければならない
-        match Self::get_victory_or_defeat_(play_player, wait_player) {
-            Ok(VictoryOrDefat::YetPlaying) => {}
-            _ => {
-                return res;
-            }
-        }
-        
-        loop {
+            // まだプレイ中でなければならない
             match Self::get_victory_or_defeat_(play_player, wait_player) {
-                Ok(VictoryOrDefat::YetPlaying) => {
-                    // まだプレイ中の場合のみダイスを振る
-                    let cmd = Self::diceroll();
+                Ok(VictoryOrDefat::YetPlaying) => {}
+                _ => {
+                    return res;
+                }
+            }
+            
+            loop {
+                match Self::get_victory_or_defeat_(play_player, wait_player) {
+                    Ok(VictoryOrDefat::YetPlaying) => {
+                        // まだプレイ中の場合のみダイスを振る
+                        let cmd = Self::diceroll();
+                        
+                        if cmd.point > 0 {
+                            let val = std::cmp::min(cmd.point, wait_player.score.score);
+                            play_player.score.score += val;
+                            wait_player.score.score -= val;
+                        }
+                        else{
+                            let val = std::cmp::min(-cmd.point, play_player.score.score);
+                            play_player.score.score -= val;
+                            wait_player.score.score += val;
+                        }
 
-                    if cmd.point > 0 {
-                        play_player.score += cmd.point;
-                        wait_player.score -= cmd.point;
+                        res.push(format!("{} の番", play_player.name ).to_string());
+                        res.push(cmd.explain.to_string());
+
+                        // もう一度振れないなら終了
+                        if !cmd.again {
+                            break;
+                        }
                     }
-                    else{
-                        play_player.score -= cmd.point;
-                        wait_player.score += cmd.point;
-                    }
-
-                    res.push(format!("{} の番", play_player.name ).to_string());
-                    res.push(cmd.explain.to_string());
-
-                    // もう一度振れないなら終了
-                    if !cmd.again {
+                    Ok(_) =>{
                         break;
                     }
-                }
-                _ => {
-                    return vec![];
-                }
+                    Err(err) => {
+                        panic!("{:?}", err);
+                    }
+                }            
             }
-            res.push("### score ###".to_string());
-            res.push(format!("{} => {}, {} => {} ", 
-                             play_player.name, play_player.score.to_string(),
-                             wait_player.name, wait_player.score.to_string()).to_string());
-            
+            self.turn = next_turn;
         }
-        self.turn = next_turn;
+
+        res.push("### score ###".to_string());
+        res.push(format!("{} => {}, {} => {} ", 
+                         self.player1.name, self.player1.score.to_string(),
+                         self.player2.name, self.player2.score.to_string()));
+
+
         return res;
     }
 
@@ -193,13 +204,13 @@ impl Hatagenpei {
     }
 
     fn get_victory_or_defeat_(player1 : &Player, player2 : &Player) ->  Result<VictoryOrDefat, HatagenPeiError> {
-        if player1.score == 0 && player2.score > 0 {
+        if player1.score.score == 0 && player2.score.score > 0 {
             return Ok(VictoryOrDefat::Player2Win);
         }
-        else if player1.score > 0 && player2.score == 0 {
+        else if player1.score.score > 0 && player2.score.score == 0 {
             return Ok(VictoryOrDefat::Player1Win);
         }
-        else if player1.score > 0 && player2.score > 0 {
+        else if player1.score.score > 0 && player2.score.score > 0 {
             return Ok(VictoryOrDefat::YetPlaying);
         }
         else{
@@ -215,6 +226,31 @@ mod tests {
     #[test]
     fn hatagenpei_tests() {
         // TODO implementation
+        use crate::hatagenpei::*;
+        let p1 = Player::new("first".to_string(), Score{score : 59});
+        let p2 = Player::new("second".to_string(), Score{score : 59});
+
+        let mut hg = Hatagenpei::new(p1, p2, PlayerTurn::Player1);
+
+        loop {
+            let v = hg.next();
+
+            for i in v {
+                println!("{:?}", i);
+            }
+
+            match hg.get_victory_or_defeat() {
+                Ok(VictoryOrDefat::YetPlaying) => {
+                }
+                Ok(_) => {
+                    break;
+                }
+                Err(err) => {
+                    println!("{:?}", err);
+                }
+            }
+
+        }
         
     }
 }
