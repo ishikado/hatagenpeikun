@@ -34,12 +34,14 @@ enum EventHandlerError {
 pub struct MyHandler {
     start_response: Option<StartResponse>,
     myuid: String,
-    myname: String
+    myname: String,
+    redis_uri: Option<String>
 }
 
 impl MyHandler {
-    pub fn new() -> MyHandler {
+    pub fn new(redis_uri : Option<String>) -> MyHandler {
         return MyHandler {
+            redis_uri : redis_uri,
             start_response: None,
             myuid: "".to_string(),
             myname: "".to_string()
