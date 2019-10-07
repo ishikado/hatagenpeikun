@@ -15,9 +15,9 @@ pub struct Score {
 
 impl ToString for Score {
     fn to_string(&self) -> String {
-        let obata = self.score / 100;
+        let obata   = self.score / 100;
         let chubata = (self.score % 100) / 10;
-        let kobata = (self.score % 100) % 10;
+        let kobata  = (self.score % 100) % 10;
         return format!("大旗 : {} 本、中旗 : {} 本、小旗 : {} 本", obata, chubata, kobata).to_string();
     }
 }
@@ -230,7 +230,7 @@ mod tests {
 
         let first_player_name = "first";
         let second_player_name = "second";
-        let initial_score = 59;
+        let initial_score = 30;
         
 
         let p1 = Player::new(first_player_name.to_string(), Score{score : initial_score});
@@ -238,8 +238,11 @@ mod tests {
 
         let mut hg = Hatagenpei::new(p1, p2, PlayerTurn::Player1);
 
+        let mut call_next_count = 0;
+
         loop {
             let v = hg.next();
+            call_next_count += 1;
 
             for i in v {
                 println!("{:?}", i);
@@ -263,6 +266,6 @@ mod tests {
                 }
             }
         }
-        
+        println!("call_next_count = {}", call_next_count);
     }
 }
