@@ -227,8 +227,14 @@ mod tests {
     fn hatagenpei_tests() {
         // TODO implementation
         use crate::hatagenpei::*;
-        let p1 = Player::new("first".to_string(), Score{score : 59});
-        let p2 = Player::new("second".to_string(), Score{score : 59});
+
+        let first_player_name = "first";
+        let second_player_name = "second";
+        let initial_score = 59;
+        
+
+        let p1 = Player::new(first_player_name.to_string(), Score{score : initial_score});
+        let p2 = Player::new(second_player_name.to_string(), Score{score : initial_score});
 
         let mut hg = Hatagenpei::new(p1, p2, PlayerTurn::Player1);
 
@@ -239,17 +245,23 @@ mod tests {
                 println!("{:?}", i);
             }
 
+            println!("");
+
             match hg.get_victory_or_defeat() {
                 Ok(VictoryOrDefat::YetPlaying) => {
                 }
-                Ok(_) => {
+                Ok(VictoryOrDefat::Player1Win) => {
+                    println!("{} win!!", first_player_name);
+                    break;
+                }
+                Ok(VictoryOrDefat::Player2Win) => {
+                    println!("{} win!!", second_player_name);
                     break;
                 }
                 Err(err) => {
                     println!("{:?}", err);
                 }
             }
-
         }
         
     }
