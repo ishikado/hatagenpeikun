@@ -16,7 +16,7 @@ ENV TOKEN $SLACK_API_TOKEN
 ENV PATH $PATH:/root/.cargo/bin
 
 # fix me!!
-COPY . rust_test_bot
+COPY . hatagenpeikun
 
 RUN cd rust_test_bot &&  cargo install --path .
-CMD ["/bin/zsh", "-c", "/root/.cargo/bin/rust_test_bot $TOKEN -l $LEVEL"]
+CMD ["/bin/zsh", "-c", "/root/.cargo/bin/hatagenpeikun $TOKEN -l $LEVEL"]
