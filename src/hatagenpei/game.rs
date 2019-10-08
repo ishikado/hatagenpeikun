@@ -225,7 +225,8 @@ impl Hatagenpei {
 mod tests {
     #[test]
     fn hatagenpei_tests() {
-        // TODO implementation
+        // TODO : print せずに、機械的に比較できるテストを実装したい
+
         use crate::hatagenpei::game::*;
 
         let first_player_name = "first";
@@ -269,3 +270,4 @@ mod tests {
         println!("call_next_count = {}", call_next_count);
     }
 }
+
