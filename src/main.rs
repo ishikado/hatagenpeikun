@@ -21,10 +21,9 @@
 // to.
 //
 
-
 use getopts::Options;
-use log::error;
 use hatagenpeikun::event_handler::MyHandler;
+use log::error;
 use slack::RtmClient;
 use std::env;
 
@@ -43,12 +42,7 @@ fn main() {
         "set loglevel",
         "debug | info | warn | error",
     );
-    opts.optopt(
-        "r",
-        "redis_uri",
-        "set redis uri",
-        "",
-    );
+    opts.optopt("r", "redis_uri", "set redis uri", "");
     opts.optflag("h", "help", "print this help menu");
 
     let matches = match opts.parse(&args[1..]) {

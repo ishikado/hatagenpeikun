@@ -12,4 +12,3 @@ extern crate failure;
 pub mod commands;
 pub mod event_handler;
 pub mod hatagenpei;
-

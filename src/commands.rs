@@ -10,12 +10,15 @@ public functions
 ******************/
 
 // ﾌﾟﾙﾙﾙ に反応する
-pub fn on_purururu(cli: &RtmClient, chid: &String, text: &String) -> Result<(), failure::Error>  {
+pub fn on_purururu(cli: &RtmClient, chid: &String, text: &String) -> Result<(), failure::Error> {
     info!("called on_purururu, text = {}", text);
     if let Some(_) = text.find("ﾌﾟﾙﾙﾙ") {
-        let _ = cli.sender().send_message(chid, "ﾌﾟﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙ！");
+        let _ = cli.sender().send_message(
+            chid,
+            "ﾌﾟﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙ！",
+        );
     }
-   Ok(())
+    Ok(())
 }
 
 // メンションされた内容をそのまま送り返す

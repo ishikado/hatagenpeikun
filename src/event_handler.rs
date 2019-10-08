@@ -35,16 +35,16 @@ pub struct MyHandler {
     start_response: Option<StartResponse>,
     myuid: String,
     myname: String,
-    redis_uri: Option<String>
+    redis_uri: Option<String>,
 }
 
 impl MyHandler {
-    pub fn new(redis_uri : Option<String>) -> MyHandler {
+    pub fn new(redis_uri: Option<String>) -> MyHandler {
         return MyHandler {
-            redis_uri : redis_uri,
+            redis_uri: redis_uri,
             start_response: None,
             myuid: "".to_string(),
-            myname: "".to_string()
+            myname: "".to_string(),
         };
     }
     fn on_message(&mut self, cli: &RtmClient, message: &Message) -> Result<(), failure::Error> {
@@ -85,8 +85,8 @@ impl MyHandler {
         use super::commands::*;
 
         let text: &String = ms.text.as_ref().ok_or(EventHandlerError::TextNotFound)?;
-        on_purururu(cli, chid, text)?; 
-        
+        on_purururu(cli, chid, text)?;
+
         // TODO 旗源平という発言と、それに対応する slack bot のコメントを見つけたら、結果をカウントする
         // ひとまず on memory でカウンタを実装して、最終的には redis に書き込めるようにしたい
 
@@ -191,11 +191,18 @@ impl slack::EventHandler for MyHandler {
             .clone();
 
         // unwrap しているが、もしここで自分の名前が得られないとおかしいので、クラッシュさせてしまう
-        let myname_with_dblquon = cli.start_response().slf.as_ref().unwrap().name.as_ref().unwrap();
+        let myname_with_dblquon = cli
+            .start_response()
+            .slf
+            .as_ref()
+            .unwrap()
+            .name
+            .as_ref()
+            .unwrap();
 
         assert!(myname_with_dblquon.len() >= 2);
 
-        let myname = myname_with_dblquon[0..myname_with_dblquon.len()-1].to_string();
+        let myname = myname_with_dblquon[0..myname_with_dblquon.len() - 1].to_string();
 
         self.start_response = Some(cli.start_response().clone());
         self.myuid = uid;
