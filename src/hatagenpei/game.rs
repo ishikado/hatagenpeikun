@@ -267,6 +267,7 @@ impl<'a> Hatagenpei<'a> {
                 }
             }
             
+            res.push(format!("{} の番", turn_player_name ).to_string());
             loop {
                 match self.get_victory_or_defeat() {
                     Ok(VictoryOrDefat::YetPlaying) => {
@@ -289,7 +290,6 @@ impl<'a> Hatagenpei<'a> {
                         get_player.score.score += v;
                         send_player.score.score -= v;
 
-                        res.push(format!("{} の番", turn_player_name ).to_string());
                         res.push(cmd.explain.to_string());
 
                         // もう一度振れないなら終了
