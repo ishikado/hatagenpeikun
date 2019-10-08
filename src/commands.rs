@@ -4,10 +4,21 @@ bot が実行するコマンド
 
 use log::{info, warn};
 use slack::RtmClient;
+use crate::hatagenpei::controller::*;
 
 /*****************
 public functions
 ******************/
+
+pub fn on_hatagenpei(cli : &RtmClient, controller : &mut Option<HatagenpeiController>, chid: &String) -> Result<(), failure::Error> {
+    info!("called on_hatagenpei");
+    
+    
+
+    
+
+    return Ok(());
+}
 
 // ﾌﾟﾙﾙﾙ に反応する
 pub fn on_purururu(cli: &RtmClient, chid: &String, text: &String) -> Result<(), failure::Error> {

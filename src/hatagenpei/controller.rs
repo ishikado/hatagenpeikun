@@ -22,17 +22,17 @@ impl ScorePair {
     }
 }
 
-pub struct HatagenpeiController<'a> {
-    bot_name: &'a str,
-    redis_uri: Option<&'static str>,
+pub struct HatagenpeiController {
+    bot_name: String,
+    redis_uri: Option<String>,
     score_map: BTreeMap<String, ScorePair>, // redis が使えないときに利用する
 }
 
-impl<'a> HatagenpeiController<'a> {
-    pub fn new(redis_uri: Option<&'static str>, bot_name: &'a str) -> HatagenpeiController<'a> {
+impl HatagenpeiController {
+    pub fn new(redis_uri: &Option<String>, bot_name: &String) -> HatagenpeiController {
         return HatagenpeiController {
-            redis_uri: redis_uri,
-            bot_name: bot_name,
+            redis_uri: redis_uri.clone(),
+            bot_name: bot_name.clone(),
             score_map: BTreeMap::new(),
         };
     }
@@ -127,7 +127,7 @@ mod tests {
         // controller を動作させ、ちゃんと状態が保存されているか見る
         use crate::hatagenpei::controller::*;
 
-        let mut ins = HatagenpeiController::new(None, "hatagenpeikun");
+        let mut ins = HatagenpeiController::new(&None, &"hatagenpeikun".to_string());
 
         for _ in 0..2 {
             let res = ins.step(&"rust".to_string());
@@ -137,3 +137,4 @@ mod tests {
         }
     }
 }
+

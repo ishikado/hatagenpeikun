@@ -21,6 +21,7 @@ use log::{debug, info, warn};
 use slack::api::rtm::StartResponse;
 use slack::api::{Message, MessageStandard};
 use slack::{Event, RtmClient};
+use crate::hatagenpei::controller::*;
 
 #[derive(Debug, Fail)]
 enum EventHandlerError {
@@ -30,12 +31,12 @@ enum EventHandlerError {
     ChannelNotFound,
 }
 
-#[derive(Debug)]
-pub struct MyHandler {
+pub struct MyHandler{
     start_response: Option<StartResponse>,
     myuid: String,
     myname: String,
     redis_uri: Option<String>,
+    hatagenpei_controller : Option<HatagenpeiController>
 }
 
 impl MyHandler {
@@ -45,6 +46,7 @@ impl MyHandler {
             start_response: None,
             myuid: "".to_string(),
             myname: "".to_string(),
+            hatagenpei_controller : None
         };
     }
     fn on_message(&mut self, cli: &RtmClient, message: &Message) -> Result<(), failure::Error> {
@@ -123,6 +125,14 @@ impl MyHandler {
                     return Ok(());
                 }),
             ),
+            // (
+            //     "旗源平",
+            //     "旗源平 - 旗源平で遊びます",
+            //     Box::new(move |_| {
+            //         on_hatagenpei(cli, &mut self.hatagenpei_controller, chid)?;
+            //         return Ok(());
+            //     }),
+            // ),
         ];
 
         // helpだけは特別扱い
@@ -207,6 +217,10 @@ impl slack::EventHandler for MyHandler {
         self.start_response = Some(cli.start_response().clone());
         self.myuid = uid;
         self.myname = myname;
+
+
+        self.hatagenpei_controller = Some(HatagenpeiController::new(&self.redis_uri, &self.myname));
+
         // Send a message over the real time api websocket
     }
 }
