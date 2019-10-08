@@ -226,7 +226,7 @@ mod tests {
     #[test]
     fn hatagenpei_tests() {
         // TODO implementation
-        use crate::hatagenpei::*;
+        use crate::hatagenpei::game::*;
 
         let first_player_name = "first";
         let second_player_name = "second";
