@@ -17,11 +17,11 @@
 // This is a simple example of using slack-rs.
 //
 
+use crate::hatagenpei::controller::*;
 use log::{debug, info, warn};
 use slack::api::rtm::StartResponse;
 use slack::api::{Message, MessageStandard};
 use slack::{Event, RtmClient};
-use crate::hatagenpei::controller::*;
 
 #[derive(Debug, Fail)]
 enum EventHandlerError {
@@ -31,12 +31,12 @@ enum EventHandlerError {
     ChannelNotFound,
 }
 
-pub struct MyHandler{
+pub struct MyHandler {
     start_response: Option<StartResponse>,
     myuid: String,
     myname: String,
     redis_uri: Option<String>,
-    hatagenpei_controller : Option<HatagenpeiController>
+    hatagenpei_controller: Option<HatagenpeiController>,
 }
 
 impl MyHandler {
@@ -46,7 +46,7 @@ impl MyHandler {
             start_response: None,
             myuid: "".to_string(),
             myname: "".to_string(),
-            hatagenpei_controller : None
+            hatagenpei_controller: None,
         };
     }
     fn on_message(&mut self, cli: &RtmClient, message: &Message) -> Result<(), failure::Error> {
@@ -214,7 +214,6 @@ impl slack::EventHandler for MyHandler {
         self.start_response = Some(cli.start_response().clone());
         self.myuid = uid;
         self.myname = myname;
-
 
         self.hatagenpei_controller = Some(HatagenpeiController::new(&self.redis_uri, &self.myname));
 

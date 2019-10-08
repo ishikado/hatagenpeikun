@@ -103,19 +103,11 @@ impl HatagenpeiController {
                     }
                 }
                 Ok(win_player) => {
-
-                    let win_player_name = 
-                        match win_player {
-                            VictoryOrDefat::Player1Win => {
-                                player_name.to_string()
-                            },
-                            VictoryOrDefat::Player2Win => {
-                                self.bot_name.clone()
-                            },
-                            VictoryOrDefat::YetPlaying => {
-                                panic!("unexpected!")
-                            }
-                        };
+                    let win_player_name = match win_player {
+                        VictoryOrDefat::Player1Win => player_name.to_string(),
+                        VictoryOrDefat::Player2Win => self.bot_name.clone(),
+                        VictoryOrDefat::YetPlaying => panic!("unexpected!"),
+                    };
 
                     finres.push(format!("{} is win!!", win_player_name));
 
@@ -159,4 +151,3 @@ mod tests {
         }
     }
 }
-
