@@ -22,29 +22,29 @@ impl ScorePair {
     }
 }
 
-pub struct HatagenpeiController{
-    bot_name : String,
-    redis_uri : Option<String>,
+pub struct HatagenpeiController<'a>{
+    bot_name  : &'a str,
+    redis_uri : Option<&'static str>,
     score_map : BTreeMap<String, ScorePair> // redis が使えないときに利用する
 }
 
-impl HatagenpeiController {
+impl<'a> HatagenpeiController<'a> {
     
-    pub fn new(redis_uri : &Option<String>, bot_name : &String) -> HatagenpeiController {
-        return HatagenpeiController{redis_uri : redis_uri.clone(), 
-                                    bot_name : bot_name.clone(), 
+    pub fn new(redis_uri : Option<&'static str>, bot_name : &'a str) -> HatagenpeiController<'a> {
+        return HatagenpeiController{redis_uri : redis_uri, 
+                                    bot_name : bot_name, 
                                     score_map : BTreeMap::new()};
     }
 
     /// 1step旗源平の実行を行う
-    pub fn step(&mut self, player_name : &String) -> Vec<String> {
+    pub fn step(&mut self, player_name : &str) -> Vec<String> {
         let score_pair : &ScorePair;
         // redis から、 player_name を key として、現在のスコアを取り出す
         match &self.redis_uri {
             None => {
                 match self.score_map.get(player_name) {
                     None => {
-                        self.score_map.insert(player_name.clone(), 
+                        self.score_map.insert(player_name.to_string(),
                                               ScorePair::new(HATAGENPEI_INIT_SCORE,
                                                              HATAGENPEI_INIT_SCORE));
                     }
@@ -60,8 +60,8 @@ impl HatagenpeiController {
         }
         
         // 現在の状態でゲームを行う
-        let mut game = Hatagenpei::new(Player::new(player_name.clone(), Score{score : score_pair.player_score}),
-                                       Player::new(self.bot_name.clone(), Score{score : score_pair.bot_score}),
+        let mut game = Hatagenpei::new(Player::new(player_name, Score{score : score_pair.player_score}),
+                                       Player::new(&self.bot_name[..], Score{score : score_pair.bot_score}),
                                        PlayerTurn::Player1);
         
         let res = game.next();
@@ -99,6 +99,12 @@ mod tests {
     #[test]
     fn controller_tests() {
         // controller を動作させ、ちゃんと状態が保存されているか見る
+        use crate::hatagenpei::controller::*;
+
         // TODO 実装する
+        let mut ins = HatagenpeiController::new(None, "hatagenpeikun");
+        
+        ins.step(&"rust".to_string());
+        
     }
 }

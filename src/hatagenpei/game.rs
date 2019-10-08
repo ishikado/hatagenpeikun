@@ -24,13 +24,13 @@ impl ToString for Score {
 
 
 #[derive(Clone)]
-pub struct Player {
+pub struct Player<'a> {
     pub score : Score,
-    pub name : String
+    pub name : &'a str
 }
 
-impl Player {
-    pub fn new(name : String, score : Score) -> Player {
+impl<'a> Player<'a> {
+    pub fn new(name : &'a str, score : Score) -> Player<'a> {
         return Player{score : score, name : name};
     }
 }
@@ -46,9 +46,9 @@ pub enum VictoryOrDefat {
     YetPlaying
 }
 
-pub struct Hatagenpei {
-    pub player1 : Player,
-    pub player2 : Player,
+pub struct Hatagenpei<'a> {
+    pub player1 : Player<'a>,
+    pub player2 : Player<'a>,
     pub turn : PlayerTurn
 }
 
@@ -93,9 +93,9 @@ const HATAGENPEICOMMANDS : [HatagenpeiCommand ; 21]
         HatagenpeiCommand{dice1 : 5, dice2 : 6, point : 1, again : false, explain : "５  ６	ごろく	　　　　　　小旗１本もらう"}
     ];
 
-impl Hatagenpei {
+impl<'a> Hatagenpei<'a> {
     /// Hatagenpei インスタンスを作成する
-    pub fn new(player1 : Player, player2 : Player, first_player : PlayerTurn) -> Hatagenpei {
+    pub fn new(player1 : Player<'a>, player2 : Player<'a>, first_player : PlayerTurn) -> Hatagenpei<'a> {
         return Hatagenpei{player1 : player1, player2 : player2, turn : first_player};
     }
     
@@ -234,8 +234,8 @@ mod tests {
         let initial_score = 30;
         
 
-        let p1 = Player::new(first_player_name.to_string(), Score{score : initial_score});
-        let p2 = Player::new(second_player_name.to_string(), Score{score : initial_score});
+        let p1 = Player::new(first_player_name, Score{score : initial_score});
+        let p2 = Player::new(second_player_name, Score{score : initial_score});
 
         let mut hg = Hatagenpei::new(p1, p2, PlayerTurn::Player1);
 
