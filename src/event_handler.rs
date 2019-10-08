@@ -89,9 +89,6 @@ impl MyHandler {
         let text: &String = ms.text.as_ref().ok_or(EventHandlerError::TextNotFound)?;
         on_purururu(cli, chid, text)?;
 
-        // TODO 旗源平という発言と、それに対応する slack bot のコメントを見つけたら、結果をカウントする
-        // ひとまず on memory でカウンタを実装して、最終的には redis に書き込めるようにしたい
-
         return Ok(());
     }
 
@@ -104,15 +101,15 @@ impl MyHandler {
         use super::commands::*;
 
         // list of (command名, help以外のcommandのdoc, command実行用クロージャ)
-        let commands: Vec<(
+        let mut commands: Vec<(
             &str,
             &str,
-            Box<dyn Fn(&String) -> Result<(), failure::Error>>,
+            Box<dyn FnMut(&mut MyHandler, &String) -> Result<(), failure::Error>>,
         )> = vec![
             (
                 "echo",
                 "echo <arg> - <arg> をそのまま返す",
-                Box::new(move |arg| {
+                Box::new(move |handler, arg| {
                     on_echo(cli, chid, arg)?;
                     return Ok(());
                 }),
@@ -120,19 +117,19 @@ impl MyHandler {
             (
                 "nowtime",
                 "nowtime - 現在時刻を取得する",
-                Box::new(move |_| {
+                Box::new(move |handler, _| {
                     on_nowtime(cli, chid)?;
                     return Ok(());
                 }),
             ),
-            // (
-            //     "旗源平",
-            //     "旗源平 - 旗源平で遊びます",
-            //     Box::new(move |_| {
-            //         on_hatagenpei(cli, &mut self.hatagenpei_controller, chid)?;
-            //         return Ok(());
-            //     }),
-            // ),
+            (
+                "旗源平",
+                "旗源平 - 旗源平で遊びます",
+                Box::new(move |handler, _| {
+                    on_hatagenpei(cli, &mut handler.hatagenpei_controller, chid)?;
+                    return Ok(());
+                }),
+            ),
         ];
 
         // helpだけは特別扱い
@@ -151,12 +148,12 @@ impl MyHandler {
 
         // help以外のcommandを実行
         // エラーが出たら終了
-        for (command_name, _doc, f) in &commands {
-            if let Some(_pos) = text_without_mention.find(command_name) {
+        for (command_name, _doc, f) in &mut commands {
+            if let Some(_pos) = text_without_mention.find(*command_name) {
                 let arg = &text_without_mention[command_name.len()..]
                     .trim_start()
                     .to_string();
-                match f(arg) {
+                match f(self, arg) {
                     Ok(()) => {
                         continue;
                     }

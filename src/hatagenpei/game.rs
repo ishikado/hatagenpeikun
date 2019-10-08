@@ -40,6 +40,7 @@ impl<'a> Player<'a> {
     }
 }
 
+#[derive(PartialEq)]
 pub enum PlayerTurn {
     Player1,
     Player2,
@@ -235,6 +236,8 @@ impl<'a> Hatagenpei<'a> {
         };
     }
 
+
+
     /// 1ターン進める。
     /// サイコロの振り直しが発生した場合、振り直しを行う。
     /// 戻り値で、実行ログを返す
@@ -242,48 +245,51 @@ impl<'a> Hatagenpei<'a> {
         let mut res = vec![];
 
         {
-            let play_player: &mut Player;
-            let wait_player: &mut Player;
             let next_turn;
+            let turn_player_name;
 
             match self.turn {
                 PlayerTurn::Player1 => {
-                    play_player = &mut self.player1;
-                    wait_player = &mut self.player2;
+                    turn_player_name = self.player1.name.clone();
                     next_turn = PlayerTurn::Player2;
                 }
                 PlayerTurn::Player2 => {
-                    play_player = &mut self.player2;
-                    wait_player = &mut self.player1;
+                    turn_player_name = self.player2.name.clone();
                     next_turn = PlayerTurn::Player1;
                 }
             }
 
             // まだプレイ中でなければならない
-            match Self::get_victory_or_defeat_(play_player, wait_player) {
+            match self.get_victory_or_defeat() {
                 Ok(VictoryOrDefat::YetPlaying) => {}
                 _ => {
                     return res;
                 }
             }
-
+            
             loop {
-                match Self::get_victory_or_defeat_(play_player, wait_player) {
+                match self.get_victory_or_defeat() {
                     Ok(VictoryOrDefat::YetPlaying) => {
                         // まだプレイ中の場合のみダイスを振る
                         let cmd = Self::diceroll();
+                        let mut get_player;
+                        let mut send_player;
 
-                        if cmd.point > 0 {
-                            let val = std::cmp::min(cmd.point, wait_player.score.score);
-                            play_player.score.score += val;
-                            wait_player.score.score -= val;
-                        } else {
-                            let val = std::cmp::min(-cmd.point, play_player.score.score);
-                            play_player.score.score -= val;
-                            wait_player.score.score += val;
+                        if (cmd.point > 0) as i32 ^ (self.turn == PlayerTurn::Player1) as i32 > 0 {
+                            get_player = &mut self.player2;
+                            send_player = &mut self.player1;
                         }
+                        else{
+                            get_player = &mut self.player1;
+                            send_player = &mut self.player2;
+                        }
+                        
 
-                        res.push(format!("{} の番", play_player.name).to_string());
+                        let v = std::cmp::min(cmd.point.abs(), send_player.score.score);
+                        get_player.score.score += v;
+                        send_player.score.score -= v;
+
+                        res.push(format!("{} の番", turn_player_name ).to_string());
                         res.push(cmd.explain.to_string());
 
                         // もう一度振れないなら終了
@@ -291,25 +297,22 @@ impl<'a> Hatagenpei<'a> {
                             break;
                         }
                     }
-                    Ok(_) => {
+                    Ok(_) =>{
                         break;
                     }
                     Err(err) => {
                         panic!("{:?}", err);
                     }
-                }
+                }            
             }
             self.turn = next_turn;
         }
 
         res.push("### score ###".to_string());
-        res.push(format!(
-            "{} => {}, {} => {} ",
-            self.player1.name,
-            self.player1.score.to_string(),
-            self.player2.name,
-            self.player2.score.to_string()
-        ));
+        res.push(format!("{} => {}, {} => {} ", 
+                         self.player1.name, self.player1.score.to_string(),
+                         self.player2.name, self.player2.score.to_string()));
+
 
         return res;
     }

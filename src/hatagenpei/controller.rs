@@ -55,7 +55,7 @@ impl HatagenpeiController {
                 score_pair = self.score_map.get(player_name).unwrap();
             }
             Some(_uri) => {
-                // TODO 実装する
+                // TODO redisからの取り出しを実装する
                 error!("not implementation!");
                 panic!("");
             }
@@ -89,13 +89,36 @@ impl HatagenpeiController {
                     if i == 1 {
                         let (p1, p2) = game.get_score();
                         // スコアの再登録
-                        self.score_map.insert(
-                            player_name.to_string(),
-                            ScorePair::new(p1.score.score, p2.score.score),
-                        );
+                        match &self.redis_uri {
+                            None => {
+                                self.score_map.insert(
+                                    player_name.to_string(),
+                                    ScorePair::new(p1.score.score, p2.score.score),
+                                );
+                            }
+                            Some(_uri) => {
+                                // TODO 実装する
+                            }
+                        };
                     }
                 }
-                Ok(_) => {
+                Ok(win_player) => {
+
+                    let win_player_name = 
+                        match win_player {
+                            VictoryOrDefat::Player1Win => {
+                                player_name.to_string()
+                            },
+                            VictoryOrDefat::Player2Win => {
+                                self.bot_name.clone()
+                            },
+                            VictoryOrDefat::YetPlaying => {
+                                panic!("unexpected!")
+                            }
+                        };
+
+                    finres.push(format!("{} is win!!", win_player_name));
+
                     // ゲームが終わったので、進行状態を削除する
                     match &self.redis_uri {
                         None => {
@@ -110,7 +133,6 @@ impl HatagenpeiController {
                 Err(err) => {
                     // ここを通ったら異常なので panic する
                     // redis の場合は key を消してしまったほうがいいかもしれない
-
                     error!("error occured!, error = {:?}", err);
                     panic!("");
                 }
