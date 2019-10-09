@@ -1,9 +1,19 @@
 //!
 //! 旗源平をbotで実現するモジュール
 //!
-use super::game::*;
+extern crate redis;
+extern crate serde_derive;
+extern crate serde;
+extern crate serde_json;
+
 use log::error;
+use redis::*;
+use serde::{Deserialize, Serialize};
+use serde_json::Result;
+
 use std::collections::BTreeMap;
+
+use super::game::*;
 
 // TODO このあたりの設定は conf か 引数 で指定できるようにしたい
 const REDIS_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
@@ -61,10 +71,7 @@ impl ScoreOperation for ScoresInMap {
     fn get_score(&mut self, player_name : &str) -> ScorePair {
         match self.score_map.get(player_name) {
             None => {
-                self.score_map.insert(
-                    player_name.to_string(),
-                    ScorePair::new(HATAGENPEI_INIT_SCORE, HATAGENPEI_INIT_SCORE),
-                );
+                self.insert_score(player_name, &ScorePair::new(HATAGENPEI_INIT_SCORE, HATAGENPEI_INIT_SCORE));
             }
             _ => {}
         };
@@ -87,6 +94,14 @@ impl ScoreOperation for ScoresInMap {
 
 impl ScoreOperation for ScoresInRedis {
     fn get_score(&mut self, player_name : &str) -> ScorePair {
+        // TODO: エラーハンドリング
+        let client = Client::open(&self.redis_uri[..]).unwrap();
+        let mut con = client.get_connection().unwrap();
+        
+        // スコアを json 形式で取り出す
+        let json: String = con.hget(REDIS_HATAGENPEI_PROGRESS_KEY, player_name).unwrap();
+
+
         return ScorePair::new(0,0);
     }
 
