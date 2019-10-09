@@ -309,12 +309,16 @@ impl<'a> Hatagenpei<'a> {
 
         res.push("".to_string());
         res.push("## スコア".to_string());
-        res.push(format!("- {} => {}", 
-                         self.player1.name,
-                         self.player1.score.to_string()));
-        res.push(format!("- {} => {}", 
-                         self.player2.name,
-                         self.player2.score.to_string()));
+        res.push(format!(
+            "- {} => {}",
+            self.player1.name,
+            self.player1.score.to_string()
+        ));
+        res.push(format!(
+            "- {} => {}",
+            self.player2.name,
+            self.player2.score.to_string()
+        ));
         res.push("".to_string());
 
         return res;

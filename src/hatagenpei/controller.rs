@@ -2,8 +2,8 @@
 //! 旗源平をbotで実現するモジュール
 //!
 extern crate redis;
-extern crate serde_derive;
 extern crate serde;
+extern crate serde_derive;
 extern crate serde_json;
 
 use log::error;
@@ -17,7 +17,7 @@ use super::game::*;
 
 // TODO このあたりの設定は conf か 引数 で指定できるようにしたい
 const REDIS_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
-const REDIS_HATAGENPEI_RESULT_KEY : &str = "hatagenpei_results";
+const REDIS_HATAGENPEI_RESULT_KEY: &str = "hatagenpei_results";
 const HATAGENPEI_INIT_SCORE: i32 = 30;
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -29,12 +29,15 @@ struct ScorePair {
 #[derive(Clone, Serialize, Deserialize)]
 struct WinLose {
     win: i32,
-    lose: i32
+    lose: i32,
 }
 
 impl WinLose {
-    fn new(win : i32, lose : i32) -> WinLose {
-        return WinLose{win : win, lose : lose};
+    fn new(win: i32, lose: i32) -> WinLose {
+        return WinLose {
+            win: win,
+            lose: lose,
+        };
     }
 }
 
@@ -49,26 +52,25 @@ impl ScorePair {
 
 pub struct HatagenpeiController {
     bot_name: String,
-    score_operator : Box<dyn ScoreOperation> 
+    score_operator: Box<dyn ScoreOperation>,
 }
-
 
 trait ScoreOperation {
     /// player_name で指定されたプレイヤーのスコアを取得する。スコアがまだなかった場合は、初期値が insert されたあと、取得される。
-    fn get_score(&mut self, player_name : &str) -> ScorePair ;
+    fn get_score(&mut self, player_name: &str) -> ScorePair;
     /// player_name で指定されたプレイヤーのスコアを登録する。すでに登録済みの場合は、上書きされる
-    fn insert_score(&mut self, player_name : &str, score_pair : &ScorePair) -> bool;
+    fn insert_score(&mut self, player_name: &str, score_pair: &ScorePair) -> bool;
     /// player_name で指定されたプレイヤーのスコアを削除する。
-    fn delete_score(&mut self, player_name : &str) -> bool ;
+    fn delete_score(&mut self, player_name: &str) -> bool;
     /// player_name で指定されたプレイヤーの勝敗を登録する。
-    fn update_result(&mut self, player_name : &str, is_player_win : bool) -> bool ;
+    fn update_result(&mut self, player_name: &str, is_player_win: bool) -> bool;
     // TODO get_result で、指定されたプレイヤーの勝敗を取得できるようにしたい
     // fn get_result(&mut self, player_name : &str) -> GameResult ;
 }
 
 struct ScoresInMap {
-    score_map : BTreeMap<String, ScorePair>,
-    result_map : BTreeMap<String, WinLose>
+    score_map: BTreeMap<String, ScorePair>,
+    result_map: BTreeMap<String, WinLose>,
 }
 
 struct ScoresInRedis {
@@ -77,24 +79,29 @@ struct ScoresInRedis {
 
 impl ScoresInMap {
     pub fn new() -> ScoresInMap {
-        return ScoresInMap{score_map : BTreeMap::new(),
-                           result_map : BTreeMap::new()
+        return ScoresInMap {
+            score_map: BTreeMap::new(),
+            result_map: BTreeMap::new(),
         };
     }
 }
 
 impl ScoresInRedis {
-    pub fn new(redis_uri : &String) -> ScoresInRedis {
-        return ScoresInRedis{redis_uri : redis_uri.clone()};
+    pub fn new(redis_uri: &String) -> ScoresInRedis {
+        return ScoresInRedis {
+            redis_uri: redis_uri.clone(),
+        };
     }
 }
 
-
 impl ScoreOperation for ScoresInMap {
-    fn get_score(&mut self, player_name : &str) -> ScorePair {
+    fn get_score(&mut self, player_name: &str) -> ScorePair {
         match self.score_map.get(player_name) {
             None => {
-                self.insert_score(player_name, &ScorePair::new(HATAGENPEI_INIT_SCORE, HATAGENPEI_INIT_SCORE));
+                self.insert_score(
+                    player_name,
+                    &ScorePair::new(HATAGENPEI_INIT_SCORE, HATAGENPEI_INIT_SCORE),
+                );
             }
             _ => {}
         };
@@ -102,31 +109,29 @@ impl ScoreOperation for ScoresInMap {
         return self.score_map.get(player_name).unwrap().clone();
     }
 
-    fn insert_score(&mut self, player_name : &str, score_pair : &ScorePair) -> bool {
-        self.score_map.insert(
-            player_name.to_string(),
-            score_pair.clone()
-        );
+    fn insert_score(&mut self, player_name: &str, score_pair: &ScorePair) -> bool {
+        self.score_map
+            .insert(player_name.to_string(), score_pair.clone());
         return true;
     }
-    fn delete_score(&mut self, player_name : &str) -> bool {
+    fn delete_score(&mut self, player_name: &str) -> bool {
         self.score_map.remove(player_name);
         return true;
     }
-    fn update_result(&mut self, player_name : &str, is_player_win : bool) -> bool {
+    fn update_result(&mut self, player_name: &str, is_player_win: bool) -> bool {
         // TODO 実装する
         return true;
     }
 }
 
 impl ScoreOperation for ScoresInRedis {
-    fn get_score(&mut self, player_name : &str) -> ScorePair {
+    fn get_score(&mut self, player_name: &str) -> ScorePair {
         // TODO: エラーハンドリング
 
         //  TODO: DBへの接続は、new するときにやってしまったほうがよいかも
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
-        let get_result : RedisResult<String> = con.hget(REDIS_HATAGENPEI_PROGRESS_KEY, player_name);
+        let get_result: RedisResult<String> = con.hget(REDIS_HATAGENPEI_PROGRESS_KEY, player_name);
         let score_pair;
 
         // スコアを json 形式で取り出す
@@ -138,88 +143,77 @@ impl ScoreOperation for ScoresInRedis {
             Err(_) => {
                 score_pair = ScorePair::new(HATAGENPEI_INIT_SCORE, HATAGENPEI_INIT_SCORE);
                 if self.insert_score(player_name, &score_pair) {
-                }
-                else{
+                } else {
                     // TODO insert_score に失敗した場合はエラー扱いにしたい
-                    
+
                 }
             }
         }
         return score_pair;
     }
 
-    fn insert_score(&mut self, player_name : &str, score_pair : &ScorePair) -> bool {
+    fn insert_score(&mut self, player_name: &str, score_pair: &ScorePair) -> bool {
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
         let s = serde_json::to_string(score_pair).unwrap();
-        let _ : ()  = con.hset(REDIS_HATAGENPEI_PROGRESS_KEY, player_name, s).unwrap();
+        let _: () = con
+            .hset(REDIS_HATAGENPEI_PROGRESS_KEY, player_name, s)
+            .unwrap();
         return true;
     }
 
-    fn delete_score(&mut self, player_name : &str) -> bool {
+    fn delete_score(&mut self, player_name: &str) -> bool {
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
-        let _res: i32 = con.hdel(REDIS_HATAGENPEI_PROGRESS_KEY, player_name).unwrap();
+        let _res: i32 = con
+            .hdel(REDIS_HATAGENPEI_PROGRESS_KEY, player_name)
+            .unwrap();
         return true;
     }
-    fn update_result(&mut self, player_name : &str, is_player_win : bool) -> bool {
+    fn update_result(&mut self, player_name: &str, is_player_win: bool) -> bool {
         // まずスコアテーブルを取り出し、値を確認する
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
 
-        let get_result : RedisResult<String> = con.hget(REDIS_HATAGENPEI_RESULT_KEY, player_name);
+        let get_result: RedisResult<String> = con.hget(REDIS_HATAGENPEI_RESULT_KEY, player_name);
 
-        let mut win_lose =
-            match get_result {
-                Ok(json) => {
-                    serde_json::from_str(&json[..]).unwrap()
-                },
-                // 取り出せなかった場合、insert しておく
-                Err(_) => {
-                    WinLose::new(0, 0)
-                }
-            };
-        
-        
+        let mut win_lose = match get_result {
+            Ok(json) => serde_json::from_str(&json[..]).unwrap(),
+            // 取り出せなかった場合、insert しておく
+            Err(_) => WinLose::new(0, 0),
+        };
+
         if is_player_win {
             win_lose.win += 1;
-        }
-        else{
+        } else {
             win_lose.lose += 1;
         }
 
         // 勝敗テーブルに勝敗を書き込み
         let s = serde_json::to_string(&win_lose).unwrap();
-        let _ : ()  = con.hset(REDIS_HATAGENPEI_RESULT_KEY, player_name, s).unwrap();
+        let _: () = con
+            .hset(REDIS_HATAGENPEI_RESULT_KEY, player_name, s)
+            .unwrap();
 
         return true;
     }
-
 }
-
-
 
 impl HatagenpeiController {
     pub fn new(redis_uri: &Option<String>, bot_name: &String) -> HatagenpeiController {
-
-        let score_operator : Box<dyn ScoreOperation> = match redis_uri {
-            None => {
-                Box::new(ScoresInMap::new())
-            }
-            Some(uri) => {
-                Box::new(ScoresInRedis::new(uri))
-            }
+        let score_operator: Box<dyn ScoreOperation> = match redis_uri {
+            None => Box::new(ScoresInMap::new()),
+            Some(uri) => Box::new(ScoresInRedis::new(uri)),
         };
 
         return HatagenpeiController {
             bot_name: bot_name.clone(),
-            score_operator : score_operator
+            score_operator: score_operator,
         };
     }
 
     /// 2step旗源平の実行を行う（player -> bot）
-    pub fn step(&mut self, player_name: &str) -> Vec<String> {        
-
+    pub fn step(&mut self, player_name: &str) -> Vec<String> {
         let score_pair = self.score_operator.get_score(player_name);
 
         // 現在の状態でゲームを行う
@@ -250,7 +244,10 @@ impl HatagenpeiController {
                     if i == 1 {
                         let (p1, p2) = game.get_score();
                         // スコアの再登録
-                        self.score_operator.insert_score(player_name, &ScorePair::new(p1.score.score, p2.score.score));
+                        self.score_operator.insert_score(
+                            player_name,
+                            &ScorePair::new(p1.score.score, p2.score.score),
+                        );
                     }
                 }
                 Ok(win_player) => {
@@ -262,12 +259,15 @@ impl HatagenpeiController {
 
                     finres.push(format!("{} の勝ち", win_player_name));
                     finres.push("".to_string());
-                    
+
                     // ゲームが終わったので、進行状態を削除する
                     self.score_operator.delete_score(player_name);
 
                     // 勝敗を書く
-                    self.score_operator.update_result(player_name, (win_player == VictoryOrDefat::Player1Win) ^ (i == 1));
+                    self.score_operator.update_result(
+                        player_name,
+                        (win_player == VictoryOrDefat::Player1Win) ^ (i == 1),
+                    );
 
                     break;
                 }

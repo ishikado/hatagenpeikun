@@ -54,34 +54,25 @@ impl MyHandler {
         };
     }
 
-
-    fn retrieve_username_from_user_id(&self, user_id : &String) -> Option<String> {
+    fn retrieve_username_from_user_id(&self, user_id: &String) -> Option<String> {
         let start_response = self.start_response.as_ref()?;
         let users = start_response.users.as_ref()?;
         // user_id に一致する user を探し、username を取得する
-        let res = users.into_iter().find(|u| return u.id == Some(user_id.to_string()) )?;
+        let res = users
+            .into_iter()
+            .find(|u| return u.id == Some(user_id.to_string()))?;
 
-        let display_name = 
-            match &res.profile {
-                Some(profile) => {
-                    match &profile.display_name {
-                        Some(name) => {
-                            name.clone()
-                        },
-                        _ => {
-                            "".to_string()
-                        }
-                    }
-                },
-                _ => {
-                    "".to_string()
-                }
-            };
+        let display_name = match &res.profile {
+            Some(profile) => match &profile.display_name {
+                Some(name) => name.clone(),
+                _ => "".to_string(),
+            },
+            _ => "".to_string(),
+        };
         // もし diaplay_name が "" なら、res.real_name を使う
         let name = if display_name == "" {
             res.real_name.clone()
-        }
-        else{
+        } else {
             Some(display_name)
         };
         return name;
@@ -100,7 +91,9 @@ impl MyHandler {
                         .ok_or(EventHandlerError::ChannelNotFound)?;
 
                     let message_user_id = ms.user.as_ref().ok_or(EventHandlerError::Unexpected)?;
-                    let message_user_name = self.retrieve_username_from_user_id(message_user_id).ok_or(EventHandlerError::UserNotFound)?;
+                    let message_user_name = self
+                        .retrieve_username_from_user_id(message_user_id)
+                        .ok_or(EventHandlerError::UserNotFound)?;
 
                     if let Some(pos) = text.find(self.myuid.as_str()) {
                         // 自分へのメンションに対する処理
@@ -114,7 +107,6 @@ impl MyHandler {
                     // メッセージ全般に対する処理
                     self.on_standard_message(cli, chid, ms)?;
                 }
-
             }
             _ => {}
         }
@@ -139,7 +131,7 @@ impl MyHandler {
         &mut self,
         cli: &RtmClient,
         chid: &String,
-        message_user_name : &String,
+        message_user_name: &String,
         text_without_mention: &String,
     ) -> Result<(), failure::Error> {
         use super::commands::*;
@@ -170,7 +162,12 @@ impl MyHandler {
                 "旗源平",
                 "旗源平 - 旗源平で遊びます",
                 Box::new(move |handler, _| {
-                    on_hatagenpei(cli, &mut handler.hatagenpei_controller, message_user_name, chid)?;
+                    on_hatagenpei(
+                        cli,
+                        &mut handler.hatagenpei_controller,
+                        message_user_name,
+                        chid,
+                    )?;
                     return Ok(());
                 }),
             ),

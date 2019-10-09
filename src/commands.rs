@@ -13,7 +13,7 @@ public functions
 pub fn on_hatagenpei(
     cli: &RtmClient,
     controller: &mut Option<HatagenpeiController>,
-    message_user_name : &String,
+    message_user_name: &String,
     chid: &String,
 ) -> Result<(), failure::Error> {
     info!("called on_hatagenpei");
