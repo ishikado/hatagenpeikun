@@ -18,5 +18,5 @@ ENV PATH $PATH:/root/.cargo/bin
 # fix me!!
 COPY . hatagenpeikun
 
-RUN cd rust_test_bot &&  cargo install --path .
+RUN cd hatagenpeikun &&  cargo install --path .
 CMD ["/bin/zsh", "-c", "/root/.cargo/bin/hatagenpeikun $TOKEN -l $LEVEL -r $REDIS_URL"]
