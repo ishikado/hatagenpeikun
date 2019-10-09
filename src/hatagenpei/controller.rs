@@ -19,7 +19,7 @@ use super::game::*;
 const REDIS_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
 const HATAGENPEI_INIT_SCORE: i32 = 30;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 struct ScorePair {
     player_score: i32,
     bot_score: i32,
@@ -97,12 +97,14 @@ impl ScoreOperation for ScoresInRedis {
         // TODO: エラーハンドリング
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
-        
+
         // スコアを json 形式で取り出す
         let json: String = con.hget(REDIS_HATAGENPEI_PROGRESS_KEY, player_name).unwrap();
+        let score: ScorePair = serde_json::from_str(&json[..]).unwrap();
 
+        // TODO: スコアが存在しない場合の対応
 
-        return ScorePair::new(0,0);
+        return score;
     }
 
     fn insert_score(&mut self, player_name : &str, score_pair : &ScorePair) -> bool {
