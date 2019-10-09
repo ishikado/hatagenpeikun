@@ -260,7 +260,7 @@ impl HatagenpeiController {
                         VictoryOrDefat::YetPlaying => panic!("unexpected!"),
                     };
 
-                    finres.push(format!("{} win!!", win_player_name));
+                    finres.push(format!("{} の勝ち", win_player_name));
                     finres.push("".to_string());
                     
                     // ゲームが終わったので、進行状態を削除する
