@@ -242,7 +242,7 @@ impl slack::EventHandler for MyHandler {
             .clone();
 
         // unwrap しているが、もしここで自分の名前が得られないとおかしいので、クラッシュさせてしまう
-        let myname_with_dblquon = cli
+        let myname = cli
             .start_response()
             .slf
             .as_ref()
@@ -251,13 +251,9 @@ impl slack::EventHandler for MyHandler {
             .as_ref()
             .unwrap();
 
-        assert!(myname_with_dblquon.len() >= 2);
-
-        let myname = myname_with_dblquon[0..myname_with_dblquon.len() - 1].to_string();
-
         self.start_response = Some(cli.start_response().clone());
         self.myuid = uid;
-        self.myname = myname;
+        self.myname = myname.clone();
         self.hatagenpei_controller = Some(HatagenpeiController::new(&self.redis_uri, &self.myname));
 
         // Send a message over the real time api websocket
