@@ -119,7 +119,24 @@ impl ScoreOperation for ScoresInMap {
         return true;
     }
     fn update_result(&mut self, player_name: &str, is_player_win: bool) -> bool {
-        // TODO 実装する
+        let mut win_lose = 
+            match self.result_map.get(player_name) {
+                Some(win_lose) => {
+                    win_lose.clone()
+                },
+                None => {
+                    WinLose::new(0, 0)
+                }
+            };
+
+        if is_player_win {
+            win_lose.win += 1;
+        } else {
+            win_lose.lose += 1;
+        }
+        
+        self.result_map.insert(player_name.to_string(), win_lose);
+
         return true;
     }
 }
@@ -298,5 +315,8 @@ mod tests {
                 println!("{:?}", l);
             }
         }
+
+        // TODO:  ScoresInMap のテストを書く
+
     }
 }
