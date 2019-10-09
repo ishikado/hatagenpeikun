@@ -29,6 +29,10 @@ enum EventHandlerError {
     TextNotFound,
     #[fail(display = "channel_not_found")]
     ChannelNotFound,
+    #[fail(display = "user_not_found")]
+    UserNotFound,
+    #[fail(display = "unexpected")]
+    Unexpected,
 }
 
 pub struct MyHandler {
@@ -49,17 +53,31 @@ impl MyHandler {
             hatagenpei_controller: None,
         };
     }
+
+
+    fn retrieve_username_from_user_id(&self, user_id : &String) -> Option<String> {
+        let start_response = self.start_response.as_ref()?;
+        let users = start_response.users.as_ref()?;
+        // user_id に一致する user を探し、username を取得する
+        let res = users.into_iter().find(|u| return u.id == Some(user_id.to_string()) )?;
+        return res.name.clone();
+    }
+
     fn on_message(&mut self, cli: &RtmClient, message: &Message) -> Result<(), failure::Error> {
         match message {
             Message::Standard(ms) => {
                 let bot_id = &ms.bot_id;
-                // botのコメントには反応しない
-                if *bot_id == None {
+                // botのコメント && user_idが取得不可能な場合には反応しない
+                if *bot_id == None && ms.user != None {
                     let text: &String = ms.text.as_ref().ok_or(EventHandlerError::TextNotFound)?;
                     let chid: &String = ms
                         .channel
                         .as_ref()
                         .ok_or(EventHandlerError::ChannelNotFound)?;
+
+                    let message_user_id = ms.user.as_ref().ok_or(EventHandlerError::Unexpected)?;
+                    let message_user_name = self.retrieve_username_from_user_id(message_user_id).ok_or(EventHandlerError::UserNotFound)?;
+
                     if let Some(pos) = text.find(self.myuid.as_str()) {
                         // 自分へのメンションに対する処理
                         // textから、メンション文字列を消す
@@ -67,11 +85,12 @@ impl MyHandler {
                             .trim_start()
                             .to_string();
                         // メンションに対する処理
-                        self.on_mention(cli, chid, text_without_mention)?;
+                        self.on_mention(cli, chid, &message_user_name, text_without_mention)?;
                     }
                     // メッセージ全般に対する処理
                     self.on_standard_message(cli, chid, ms)?;
                 }
+
             }
             _ => {}
         }
@@ -96,6 +115,7 @@ impl MyHandler {
         &mut self,
         cli: &RtmClient,
         chid: &String,
+        message_user_name : &String,
         text_without_mention: &String,
     ) -> Result<(), failure::Error> {
         use super::commands::*;
@@ -126,7 +146,7 @@ impl MyHandler {
                 "旗源平",
                 "旗源平 - 旗源平で遊びます",
                 Box::new(move |handler, _| {
-                    on_hatagenpei(cli, &mut handler.hatagenpei_controller, chid)?;
+                    on_hatagenpei(cli, &mut handler.hatagenpei_controller, message_user_name, chid)?;
                     return Ok(());
                 }),
             ),

@@ -13,6 +13,7 @@ public functions
 pub fn on_hatagenpei(
     cli: &RtmClient,
     controller: &mut Option<HatagenpeiController>,
+    message_user_name : &String,
     chid: &String,
 ) -> Result<(), failure::Error> {
     info!("called on_hatagenpei");
@@ -20,12 +21,11 @@ pub fn on_hatagenpei(
 
     match controller {
         Some(controller) => {
-            let res = controller.step(&"rust".to_string());
+            let res = controller.step(message_user_name);
             let mut s = "```".to_string();
             for l in res {
                 s.push_str(&l);
                 s.push('\n');
-                // println!("{:?}", l);
             }
             s.push_str("```");
             let _ = cli.sender().send_message(chid, &s);
