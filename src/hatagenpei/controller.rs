@@ -142,6 +142,11 @@ impl ScoreOperation for ScoresInMap {
 }
 
 impl ScoreOperation for ScoresInRedis {
+    //!
+    //! redis接続周りで unwrap を多様して、エラーになった場合 panic させる作りになっている
+    //! これは、エラーハンドリングをちゃんと行ったとしても、特にリカバリができるわけでもないため
+    //! どちらでも良いなら、panic させてしまう方が実装的には楽
+    //!
     fn get_score(&mut self, player_name: &str) -> ScorePair {
         // TODO: エラーハンドリング
 
