@@ -28,6 +28,49 @@ pub struct HatagenpeiController {
     score_map: BTreeMap<String, ScorePair>, // redis が使えないときに利用する
 }
 
+
+trait ScoreOperation {
+    fn get_score(player_name : &String) -> ScorePair ;
+    fn insert_score(player_name : &String, score_pair : &ScorePair) -> bool;
+    fn delete_score(player_name : &String) -> bool ;
+}
+
+struct ScoresInMap {
+    score_map : BTreeMap<String, ScorePair>
+}
+
+struct ScoresInRedis {
+    redis_uri: String,
+}
+
+impl ScoresInMap {
+    pub fn new() -> ScoresInMap {
+        return ScoresInMap{score_map : BTreeMap::new() };
+    }
+}
+
+impl ScoresInRedis {
+    pub fn new(redis_uri : &String) -> ScoresInRedis {
+        return ScoresInRedis{redis_uri : redis_uri.clone()};
+    }
+}
+
+
+// TODO 実装する
+impl ScoreOperation for ScoresInMap {
+    fn get_score(player_name : &String) -> ScorePair {
+        return ScorePair::new(0, 0);
+    }
+    fn insert_score(player_name : &String, score_pair : &ScorePair) -> bool {
+        return false;
+    }
+    fn delete_score(player_name : &String) -> bool {
+        return false;
+    }
+}
+
+
+
 impl HatagenpeiController {
     pub fn new(redis_uri: &Option<String>, bot_name: &String) -> HatagenpeiController {
         return HatagenpeiController {
