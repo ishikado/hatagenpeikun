@@ -266,7 +266,9 @@ impl<'a> Hatagenpei<'a> {
                 }
             }
 
-            res.push(format!("{} の番", turn_player_name).to_string());
+            res.push(format!("# {} の番", turn_player_name).to_string());
+
+            res.push("## サイコロの結果".to_string());
             loop {
                 match self.get_victory_or_defeat() {
                     Ok(VictoryOrDefat::YetPlaying) => {
@@ -287,7 +289,7 @@ impl<'a> Hatagenpei<'a> {
                         get_player.score.score += v;
                         send_player.score.score -= v;
 
-                        res.push(cmd.explain.to_string());
+                        res.push(format!("- {}", cmd.explain.to_string()));
 
                         // もう一度振れないなら終了
                         if !cmd.again {
@@ -306,14 +308,13 @@ impl<'a> Hatagenpei<'a> {
         }
 
         res.push("".to_string());
-        res.push("### score ###".to_string());
-        res.push(format!("{} => {}", 
+        res.push("## スコア".to_string());
+        res.push(format!("- {} => {}", 
                          self.player1.name,
                          self.player1.score.to_string()));
-        res.push(format!("{} => {}", 
+        res.push(format!("- {} => {}", 
                          self.player2.name,
                          self.player2.score.to_string()));
-        res.push("#############".to_string());
         res.push("".to_string());
 
         return res;
