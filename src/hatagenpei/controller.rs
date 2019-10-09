@@ -5,9 +5,11 @@ use super::game::*;
 use log::error;
 use std::collections::BTreeMap;
 
+// TODO このあたりの設定は conf か 引数 で指定できるようにしたい
 const REDIS_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
 const HATAGENPEI_INIT_SCORE: i32 = 30;
 
+#[derive(Clone)]
 struct ScorePair {
     player_score: i32,
     bot_score: i32,
@@ -24,15 +26,14 @@ impl ScorePair {
 
 pub struct HatagenpeiController {
     bot_name: String,
-    redis_uri: Option<String>,
-    score_map: BTreeMap<String, ScorePair>, // redis が使えないときに利用する
+    score_operator : Box<dyn ScoreOperation> 
 }
 
 
 trait ScoreOperation {
-    fn get_score(player_name : &String) -> ScorePair ;
-    fn insert_score(player_name : &String, score_pair : &ScorePair) -> bool;
-    fn delete_score(player_name : &String) -> bool ;
+    fn get_score(&mut self, player_name : &str) -> ScorePair ;
+    fn insert_score(&mut self, player_name : &str, score_pair : &ScorePair) -> bool;
+    fn delete_score(&mut self, player_name : &str) -> bool ;
 }
 
 struct ScoresInMap {
@@ -56,53 +57,72 @@ impl ScoresInRedis {
 }
 
 
-// TODO 実装する
 impl ScoreOperation for ScoresInMap {
-    fn get_score(player_name : &String) -> ScorePair {
-        return ScorePair::new(0, 0);
+    fn get_score(&mut self, player_name : &str) -> ScorePair {
+        match self.score_map.get(player_name) {
+            None => {
+                self.score_map.insert(
+                    player_name.to_string(),
+                    ScorePair::new(HATAGENPEI_INIT_SCORE, HATAGENPEI_INIT_SCORE),
+                );
+            }
+            _ => {}
+        };
+        // 空の場合は上で中身を insert しているので、必ず取り出せる
+        return self.score_map.get(player_name).unwrap().clone();
     }
-    fn insert_score(player_name : &String, score_pair : &ScorePair) -> bool {
+
+    fn insert_score(&mut self, player_name : &str, score_pair : &ScorePair) -> bool {
+        self.score_map.insert(
+            player_name.to_string(),
+            score_pair.clone()
+        );
+        return true;
+    }
+    fn delete_score(&mut self, player_name : &str) -> bool {
+        self.score_map.remove(player_name);
+        return true;
+    }
+}
+
+impl ScoreOperation for ScoresInRedis {
+    fn get_score(&mut self, player_name : &str) -> ScorePair {
+        return ScorePair::new(0,0);
+    }
+
+    fn insert_score(&mut self, player_name : &str, score_pair : &ScorePair) -> bool {
         return false;
     }
-    fn delete_score(player_name : &String) -> bool {
+    fn delete_score(&mut self, player_name : &str) -> bool {
         return false;
     }
 }
 
 
 
+
 impl HatagenpeiController {
     pub fn new(redis_uri: &Option<String>, bot_name: &String) -> HatagenpeiController {
+
+        let score_operator : Box<dyn ScoreOperation> = match redis_uri {
+            None => {
+                Box::new(ScoresInMap::new())
+            }
+            Some(uri) => {
+                Box::new(ScoresInRedis::new(uri))
+            }
+        };
+
         return HatagenpeiController {
-            redis_uri: redis_uri.clone(),
             bot_name: bot_name.clone(),
-            score_map: BTreeMap::new(),
+            score_operator : score_operator
         };
     }
 
     /// 2step旗源平の実行を行う（player -> bot）
-    pub fn step(&mut self, player_name: &str) -> Vec<String> {
-        let score_pair: &ScorePair;
-        // redis から、 player_name を key として、現在のスコアを取り出す
-        match &self.redis_uri {
-            None => {
-                match self.score_map.get(player_name) {
-                    None => {
-                        self.score_map.insert(
-                            player_name.to_string(),
-                            ScorePair::new(HATAGENPEI_INIT_SCORE, HATAGENPEI_INIT_SCORE),
-                        );
-                    }
-                    _ => {}
-                };
-                score_pair = self.score_map.get(player_name).unwrap();
-            }
-            Some(_uri) => {
-                // TODO redisからの取り出しを実装する
-                error!("not implementation!");
-                panic!("");
-            }
-        }
+    pub fn step(&mut self, player_name: &str) -> Vec<String> {        
+
+        let score_pair = self.score_operator.get_score(player_name);
 
         // 現在の状態でゲームを行う
         let mut game = Hatagenpei::new(
@@ -132,17 +152,7 @@ impl HatagenpeiController {
                     if i == 1 {
                         let (p1, p2) = game.get_score();
                         // スコアの再登録
-                        match &self.redis_uri {
-                            None => {
-                                self.score_map.insert(
-                                    player_name.to_string(),
-                                    ScorePair::new(p1.score.score, p2.score.score),
-                                );
-                            }
-                            Some(_uri) => {
-                                // TODO 実装する
-                            }
-                        };
+                        self.score_operator.insert_score(player_name, &ScorePair::new(p1.score.score, p2.score.score));
                     }
                 }
                 Ok(win_player) => {
@@ -155,14 +165,8 @@ impl HatagenpeiController {
                     finres.push(format!("{} is win!!", win_player_name));
 
                     // ゲームが終わったので、進行状態を削除する
-                    match &self.redis_uri {
-                        None => {
-                            self.score_map.remove(player_name);
-                        }
-                        Some(_uri) => {
-                            // TODO 実装する
-                        }
-                    };
+                    self.score_operator.delete_score(player_name);
+
                     break;
                 }
                 Err(err) => {
