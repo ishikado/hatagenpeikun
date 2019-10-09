@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 
 use super::game::*;
 
-// TODO このあたりの設定は conf か 引数 で指定できるようにしたい
+// TODO: このあたりの設定は https://docs.rs/config/0.9.3/config/ を使って、Settings.toml から指定できるようにしたい
 const REDIS_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
 const REDIS_HATAGENPEI_RESULT_KEY: &str = "hatagenpei_results";
 const HATAGENPEI_INIT_SCORE: i32 = 30;
