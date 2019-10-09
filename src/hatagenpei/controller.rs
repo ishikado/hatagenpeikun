@@ -41,8 +41,11 @@ pub struct HatagenpeiController {
 
 
 trait ScoreOperation {
+    /// player_name で指定されたプレイヤーのスコアを取得する。スコアがまだなかった場合は、初期値が insert されたあと、取得される。
     fn get_score(&mut self, player_name : &str) -> ScorePair ;
+    /// player_name で指定されたプレイヤーのスコアを登録する。すでに登録済みの場合は、上書きされる
     fn insert_score(&mut self, player_name : &str, score_pair : &ScorePair) -> bool;
+    /// player_name で指定されたプレイヤーのスコアを削除する。
     fn delete_score(&mut self, player_name : &str) -> bool ;
 }
 
@@ -95,26 +98,46 @@ impl ScoreOperation for ScoresInMap {
 impl ScoreOperation for ScoresInRedis {
     fn get_score(&mut self, player_name : &str) -> ScorePair {
         // TODO: エラーハンドリング
+
+        //  TODO: DBへの接続は、new するときにやってしまったほうがよいかも
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
+        let get_result : RedisResult<String> = con.hget(REDIS_HATAGENPEI_PROGRESS_KEY, player_name);
+        let score_pair;
 
         // スコアを json 形式で取り出す
-        let json: String = con.hget(REDIS_HATAGENPEI_PROGRESS_KEY, player_name).unwrap();
-        let score: ScorePair = serde_json::from_str(&json[..]).unwrap();
-
-        // TODO: スコアが存在しない場合の対応
-
-        return score;
+        match get_result {
+            Ok(json) => {
+                score_pair = serde_json::from_str(&json[..]).unwrap();
+            }
+            // 取り出せなかった場合、insert しておく
+            Err(_) => {
+                score_pair = ScorePair::new(HATAGENPEI_INIT_SCORE, HATAGENPEI_INIT_SCORE);
+                if self.insert_score(player_name, &score_pair) {
+                }
+                else{
+                    // TODO ここでも失敗した場合はエラー扱いにしたい
+                }
+            }
+        }
+        return score_pair;
     }
 
     fn insert_score(&mut self, player_name : &str, score_pair : &ScorePair) -> bool {
-        return false;
+        let client = Client::open(&self.redis_uri[..]).unwrap();
+        let mut con = client.get_connection().unwrap();
+        let s = serde_json::to_string(score_pair).unwrap();
+        let _ : ()  = con.hset(REDIS_HATAGENPEI_PROGRESS_KEY, player_name, s).unwrap();
+        return true;
     }
+
     fn delete_score(&mut self, player_name : &str) -> bool {
-        return false;
+        let client = Client::open(&self.redis_uri[..]).unwrap();
+        let mut con = client.get_connection().unwrap();
+        let _res: i32 = con.hdel(REDIS_HATAGENPEI_PROGRESS_KEY, player_name).unwrap();
+        return true;
     }
 }
-
 
 
 
