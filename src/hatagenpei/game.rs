@@ -46,6 +46,7 @@ pub enum PlayerTurn {
     Player2,
 }
 
+#[derive(PartialEq)]
 pub enum VictoryOrDefat {
     Player1Win,
     Player2Win,
@@ -304,14 +305,16 @@ impl<'a> Hatagenpei<'a> {
             self.turn = next_turn;
         }
 
+        res.push("".to_string());
         res.push("### score ###".to_string());
-        res.push(format!(
-            "{} => {}, {} => {} ",
-            self.player1.name,
-            self.player1.score.to_string(),
-            self.player2.name,
-            self.player2.score.to_string()
-        ));
+        res.push(format!("{} => {}", 
+                         self.player1.name,
+                         self.player1.score.to_string()));
+        res.push(format!("{} => {}", 
+                         self.player2.name,
+                         self.player2.score.to_string()));
+        res.push("#############".to_string());
+        res.push("".to_string());
 
         return res;
     }

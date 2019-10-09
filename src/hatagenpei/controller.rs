@@ -17,12 +17,25 @@ use super::game::*;
 
 // TODO このあたりの設定は conf か 引数 で指定できるようにしたい
 const REDIS_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
+const REDIS_HATAGENPEI_RESULT_KEY : &str = "hatagenpei_results";
 const HATAGENPEI_INIT_SCORE: i32 = 30;
 
 #[derive(Clone, Serialize, Deserialize)]
 struct ScorePair {
     player_score: i32,
     bot_score: i32,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct WinLose {
+    win: i32,
+    lose: i32
+}
+
+impl WinLose {
+    fn new(win : i32, lose : i32) -> WinLose {
+        return WinLose{win : win, lose : lose};
+    }
 }
 
 impl ScorePair {
@@ -47,10 +60,15 @@ trait ScoreOperation {
     fn insert_score(&mut self, player_name : &str, score_pair : &ScorePair) -> bool;
     /// player_name で指定されたプレイヤーのスコアを削除する。
     fn delete_score(&mut self, player_name : &str) -> bool ;
+    /// player_name で指定されたプレイヤーの勝敗を登録する。
+    fn update_result(&mut self, player_name : &str, is_player_win : bool) -> bool ;
+    // TODO get_result で、指定されたプレイヤーの勝敗を取得できるようにしたい
+    // fn get_result(&mut self, player_name : &str) -> GameResult ;
 }
 
 struct ScoresInMap {
-    score_map : BTreeMap<String, ScorePair>
+    score_map : BTreeMap<String, ScorePair>,
+    result_map : BTreeMap<String, WinLose>
 }
 
 struct ScoresInRedis {
@@ -59,7 +77,9 @@ struct ScoresInRedis {
 
 impl ScoresInMap {
     pub fn new() -> ScoresInMap {
-        return ScoresInMap{score_map : BTreeMap::new() };
+        return ScoresInMap{score_map : BTreeMap::new(),
+                           result_map : BTreeMap::new()
+        };
     }
 }
 
@@ -93,6 +113,10 @@ impl ScoreOperation for ScoresInMap {
         self.score_map.remove(player_name);
         return true;
     }
+    fn update_result(&mut self, player_name : &str, is_player_win : bool) -> bool {
+        // TODO 実装する
+        return true;
+    }
 }
 
 impl ScoreOperation for ScoresInRedis {
@@ -116,7 +140,8 @@ impl ScoreOperation for ScoresInRedis {
                 if self.insert_score(player_name, &score_pair) {
                 }
                 else{
-                    // TODO ここでも失敗した場合はエラー扱いにしたい
+                    // TODO insert_score に失敗した場合はエラー扱いにしたい
+                    
                 }
             }
         }
@@ -137,6 +162,39 @@ impl ScoreOperation for ScoresInRedis {
         let _res: i32 = con.hdel(REDIS_HATAGENPEI_PROGRESS_KEY, player_name).unwrap();
         return true;
     }
+    fn update_result(&mut self, player_name : &str, is_player_win : bool) -> bool {
+        // まずスコアテーブルを取り出し、値を確認する
+        let client = Client::open(&self.redis_uri[..]).unwrap();
+        let mut con = client.get_connection().unwrap();
+
+        let get_result : RedisResult<String> = con.hget(REDIS_HATAGENPEI_RESULT_KEY, player_name);
+
+        let mut win_lose =
+            match get_result {
+                Ok(json) => {
+                    serde_json::from_str(&json[..]).unwrap()
+                },
+                // 取り出せなかった場合、insert しておく
+                Err(_) => {
+                    WinLose::new(0, 0)
+                }
+            };
+        
+        
+        if is_player_win {
+            win_lose.win += 1;
+        }
+        else{
+            win_lose.lose += 1;
+        }
+
+        // 勝敗テーブルに勝敗を書き込み
+        let s = serde_json::to_string(&win_lose).unwrap();
+        let _ : ()  = con.hset(REDIS_HATAGENPEI_RESULT_KEY, player_name, s).unwrap();
+
+        return true;
+    }
+
 }
 
 
@@ -202,10 +260,14 @@ impl HatagenpeiController {
                         VictoryOrDefat::YetPlaying => panic!("unexpected!"),
                     };
 
-                    finres.push(format!("{} is win!!", win_player_name));
-
+                    finres.push(format!("{} win!!", win_player_name));
+                    finres.push("".to_string());
+                    
                     // ゲームが終わったので、進行状態を削除する
                     self.score_operator.delete_score(player_name);
+
+                    // 勝敗を書く
+                    self.score_operator.update_result(player_name, (win_player == VictoryOrDefat::Player1Win) ^ (i == 1));
 
                     break;
                 }
