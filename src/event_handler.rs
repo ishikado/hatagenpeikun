@@ -60,7 +60,31 @@ impl MyHandler {
         let users = start_response.users.as_ref()?;
         // user_id に一致する user を探し、username を取得する
         let res = users.into_iter().find(|u| return u.id == Some(user_id.to_string()) )?;
-        return res.name.clone();
+
+        let display_name = 
+            match &res.profile {
+                Some(profile) => {
+                    match &profile.display_name {
+                        Some(name) => {
+                            name.clone()
+                        },
+                        _ => {
+                            "".to_string()
+                        }
+                    }
+                },
+                _ => {
+                    "".to_string()
+                }
+            };
+        // もし diaplay_name が "" なら、res.real_name を使う
+        let name = if display_name == "" {
+            res.real_name.clone()
+        }
+        else{
+            Some(display_name)
+        };
+        return name;
     }
 
     fn on_message(&mut self, cli: &RtmClient, message: &Message) -> Result<(), failure::Error> {
