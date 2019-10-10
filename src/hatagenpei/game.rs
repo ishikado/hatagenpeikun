@@ -4,17 +4,15 @@
 
 extern crate rand;
 use rand::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::mem;
 use std::string::ToString;
-use serde::{Deserialize, Serialize};
-
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Score {
     pub score: i32,
     pub matoi: bool,
 }
-
 
 impl Score {
     fn to_string(&self) -> String {
@@ -39,7 +37,7 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(name: String, my_score: Score, got_score : Score) -> Player {
+    pub fn new(name: String, my_score: Score, got_score: Score) -> Player {
         return Player {
             my_score: my_score,
             got_score: got_score,
@@ -233,11 +231,7 @@ const HATAGENPEICOMMANDS: [HatagenpeiCommand; 21] = [
 
 impl Hatagenpei {
     /// Hatagenpei インスタンスを作成する
-    pub fn new(
-        player1: Player,
-        player2: Player,
-        first_player: PlayerTurn,
-    ) -> Hatagenpei {
+    pub fn new(player1: Player, player2: Player, first_player: PlayerTurn) -> Hatagenpei {
         return Hatagenpei {
             player1: player1,
             player2: player2,
@@ -284,14 +278,15 @@ impl Hatagenpei {
                         let cmd = Self::diceroll();
 
                         // 旗を返すプレイヤーを決定
-                        let (send_player, got_player) = 
-                            if (cmd.point > 0) as i32 ^ (self.turn == PlayerTurn::Player1) as i32 > 0 {
-                                (&mut self.player1, &mut self.player2)
-                            } else {
-                                (&mut self.player2, &mut self.player1)
-                            };
+                        let (send_player, got_player) = if (cmd.point > 0) as i32
+                            ^ (self.turn == PlayerTurn::Player1) as i32
+                            > 0
+                        {
+                            (&mut self.player1, &mut self.player2)
+                        } else {
+                            (&mut self.player2, &mut self.player1)
+                        };
 
-                        
                         {
                             // TOOD: このあたりのやり取りをもうすこしきれいにしたい
 
@@ -330,8 +325,14 @@ impl Hatagenpei {
 
         for player in [&self.player1, &self.player2].iter() {
             res.push(format!("- {}", player.name));
-            res.push(format!("   - 自分の旗 【{}】", player.my_score.to_string()));
-            res.push(format!("   - 取った旗 【{}】", player.got_score.to_string()));
+            res.push(format!(
+                "   - 自分の旗 【{}】",
+                player.my_score.to_string()
+            ));
+            res.push(format!(
+                "   - 取った旗 【{}】",
+                player.got_score.to_string()
+            ));
         }
 
         res.push("".to_string());
@@ -373,11 +374,9 @@ impl Hatagenpei {
     ) -> Result<VictoryOrDefeat, HatagenPeiError> {
         if player1.got_score.matoi {
             return Ok(VictoryOrDefeat::Player1Win);
-        }
-        else if player2.got_score.matoi {
+        } else if player2.got_score.matoi {
             return Ok(VictoryOrDefeat::Player2Win);
-        }
-        else{
+        } else {
             return Ok(VictoryOrDefeat::YetPlaying);
         }
     }
@@ -395,8 +394,28 @@ mod tests {
         let second_player_name = "second";
         let initial_score = 30;
 
-        let p1 = Player::new(first_player_name.to_string(), Score{score : initial_score, matoi : true}, Score{score : 0, matoi : false});
-        let p2 = Player::new(second_player_name.to_string(), Score{score : initial_score, matoi : true}, Score{score : 0, matoi : false});
+        let p1 = Player::new(
+            first_player_name.to_string(),
+            Score {
+                score: initial_score,
+                matoi: true,
+            },
+            Score {
+                score: 0,
+                matoi: false,
+            },
+        );
+        let p2 = Player::new(
+            second_player_name.to_string(),
+            Score {
+                score: initial_score,
+                matoi: true,
+            },
+            Score {
+                score: 0,
+                matoi: false,
+            },
+        );
 
         let mut hg = Hatagenpei::new(p1, p2, PlayerTurn::Player1);
 
@@ -413,8 +432,7 @@ mod tests {
             println!("");
 
             match hg.get_victory_or_defeat() {
-                Ok(VictoryOrDefeat::YetPlaying) => {
-                }
+                Ok(VictoryOrDefeat::YetPlaying) => {}
                 Ok(VictoryOrDefeat::Player1Win) => {
                     println!("{} win!!", first_player_name);
                     break;

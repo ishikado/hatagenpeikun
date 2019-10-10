@@ -22,10 +22,9 @@ const HATAGENPEI_INIT_SCORE: i32 = 29; // 小旗が両替できるように10x(x
 
 #[derive(Clone, Serialize, Deserialize)]
 struct PlayerPair {
-    user : Player,
-    bot : Player
+    user: Player,
+    bot: Player,
 }
-
 
 #[derive(Clone, Serialize, Deserialize)]
 struct WinLose {
@@ -45,8 +44,8 @@ impl WinLose {
 impl PlayerPair {
     fn new(user: &Player, bot: &Player) -> PlayerPair {
         return PlayerPair {
-            user : user.clone(),
-            bot : bot.clone()
+            user: user.clone(),
+            bot: bot.clone(),
         };
     }
 }
@@ -72,12 +71,12 @@ trait ScoreOperation {
 struct ScoresInMap {
     score_map: BTreeMap<String, PlayerPair>,
     result_map: BTreeMap<String, WinLose>,
-    bot_name: String
+    bot_name: String,
 }
 
 struct ScoresInRedis {
     redis_uri: String,
-    bot_name: String
+    bot_name: String,
 }
 
 impl ScoresInMap {
@@ -85,7 +84,7 @@ impl ScoresInMap {
         return ScoresInMap {
             score_map: BTreeMap::new(),
             result_map: BTreeMap::new(),
-            bot_name: bot_name
+            bot_name: bot_name,
         };
     }
 }
@@ -94,7 +93,7 @@ impl ScoresInRedis {
     pub fn new(redis_uri: &String, bot_name: String) -> ScoresInRedis {
         return ScoresInRedis {
             redis_uri: redis_uri.clone(),
-            bot_name: bot_name
+            bot_name: bot_name,
         };
     }
 }
@@ -103,14 +102,30 @@ impl ScoreOperation for ScoresInMap {
     fn get_score(&mut self, player_name: &str) -> PlayerPair {
         match self.score_map.get(player_name) {
             None => {
-                self.insert_score(
-                    &PlayerPair::new(&Player::new(player_name.to_string(), 
-                                                  Score{score: HATAGENPEI_INIT_SCORE, matoi: true},
-                                                  Score{score: 0, matoi: false}),
-                                     &Player::new(self.bot_name.clone(),
-                                                  Score{score: HATAGENPEI_INIT_SCORE, matoi: true},
-                                                  Score{score: 0, matoi: false}))
-                );
+                self.insert_score(&PlayerPair::new(
+                    &Player::new(
+                        player_name.to_string(),
+                        Score {
+                            score: HATAGENPEI_INIT_SCORE,
+                            matoi: true,
+                        },
+                        Score {
+                            score: 0,
+                            matoi: false,
+                        },
+                    ),
+                    &Player::new(
+                        self.bot_name.clone(),
+                        Score {
+                            score: HATAGENPEI_INIT_SCORE,
+                            matoi: true,
+                        },
+                        Score {
+                            score: 0,
+                            matoi: false,
+                        },
+                    ),
+                ));
             }
             _ => {}
         };
@@ -128,22 +143,17 @@ impl ScoreOperation for ScoresInMap {
         return true;
     }
     fn update_result(&mut self, player_name: &str, is_player_win: bool) -> bool {
-        let mut win_lose = 
-            match self.result_map.get(player_name) {
-                Some(win_lose) => {
-                    win_lose.clone()
-                },
-                None => {
-                    WinLose::new(0, 0)
-                }
-            };
+        let mut win_lose = match self.result_map.get(player_name) {
+            Some(win_lose) => win_lose.clone(),
+            None => WinLose::new(0, 0),
+        };
 
         if is_player_win {
             win_lose.win += 1;
         } else {
             win_lose.lose += 1;
         }
-        
+
         self.result_map.insert(player_name.to_string(), win_lose);
 
         return true;
@@ -172,13 +182,30 @@ impl ScoreOperation for ScoresInRedis {
             }
             // 取り出せなかった場合、insert しておく
             Err(_) => {
-
-                player_pair = PlayerPair::new(&Player::new(player_name.to_string(), 
-                                             Score{score: HATAGENPEI_INIT_SCORE, matoi: true},
-                                             Score{score: 0, matoi: false}),
-                                &Player::new(self.bot_name.clone(),
-                                             Score{score: HATAGENPEI_INIT_SCORE, matoi: true},
-                                             Score{score: 0, matoi: false}));
+                player_pair = PlayerPair::new(
+                    &Player::new(
+                        player_name.to_string(),
+                        Score {
+                            score: HATAGENPEI_INIT_SCORE,
+                            matoi: true,
+                        },
+                        Score {
+                            score: 0,
+                            matoi: false,
+                        },
+                    ),
+                    &Player::new(
+                        self.bot_name.clone(),
+                        Score {
+                            score: HATAGENPEI_INIT_SCORE,
+                            matoi: true,
+                        },
+                        Score {
+                            score: 0,
+                            matoi: false,
+                        },
+                    ),
+                );
 
                 if self.insert_score(&player_pair) {
                 } else {
@@ -194,7 +221,11 @@ impl ScoreOperation for ScoresInRedis {
         let mut con = client.get_connection().unwrap();
         let s = serde_json::to_string(player_pair).unwrap();
         let _: () = con
-            .hset(REDIS_HATAGENPEI_PROGRESS_KEY, player_pair.user.name.clone(), s)
+            .hset(
+                REDIS_HATAGENPEI_PROGRESS_KEY,
+                player_pair.user.name.clone(),
+                s,
+            )
             .unwrap();
         return true;
     }
@@ -254,11 +285,7 @@ impl HatagenpeiController {
         let player_pair = self.score_operator.get_score(player_name);
 
         // 現在の状態でゲームを行う
-        let mut game = Hatagenpei::new(
-            player_pair.user,
-            player_pair.bot,
-            PlayerTurn::Player1,
-        );
+        let mut game = Hatagenpei::new(player_pair.user, player_pair.bot, PlayerTurn::Player1);
 
         let mut finres = vec![];
         for i in 0..2 {
@@ -271,9 +298,7 @@ impl HatagenpeiController {
                     if i == 1 {
                         let (p1, p2) = game.get_score();
                         // スコアの再登録
-                        self.score_operator.insert_score(
-                            &PlayerPair::new(p1, p2),
-                        );
+                        self.score_operator.insert_score(&PlayerPair::new(p1, p2));
                     }
                 }
                 Ok(win_player) => {
@@ -292,7 +317,7 @@ impl HatagenpeiController {
                     // 勝敗を書く
                     self.score_operator.update_result(
                         player_name,
-                        (win_player == VictoryOrDefeat::Player1Win) ^ (i == 1),
+                        win_player == VictoryOrDefeat::Player1Win,
                     );
 
                     break;
@@ -329,4 +354,3 @@ mod tests {
 
     }
 }
-
