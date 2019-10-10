@@ -18,9 +18,9 @@ pub struct Score {
 
 impl Score {
     fn my_score_to_string(&self) -> String {
-        let obata = self.my_score / 100;
-        let chubata = (self.my_score % 100) / 10;
-        let kobata = (self.my_score % 100) % 10;
+        let obata = self.my_score / 50;
+        let chubata = (self.my_score % 50) / 10;
+        let kobata = (self.my_score % 50) % 10;
         return format!(
             "大旗 : {} 本、中旗 : {} 本、小旗 : {} 本",
             obata, chubata, kobata
@@ -28,9 +28,9 @@ impl Score {
         .to_string();
     }
     fn got_score_to_string(&self) -> String {
-        let obata = self.got_score / 100;
-        let chubata = (self.got_score % 100) / 10;
-        let kobata = (self.got_score % 100) % 10;
+        let obata = self.got_score / 50;
+        let chubata = (self.got_score % 50) / 10;
+        let kobata = (self.got_score % 50) % 10;
         return format!(
             "大旗 : {} 本、中旗 : {} 本、小旗 : {} 本",
             obata, chubata, kobata
