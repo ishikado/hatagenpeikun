@@ -10,7 +10,9 @@ use std::string::ToString;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Score {
+    /// 現在所持している旗の本数
     pub score: i32,
+    /// 現在まといを所持しているか（まといがなくなると負ける）
     pub matoi: bool,
 }
 
