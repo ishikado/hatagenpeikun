@@ -348,7 +348,13 @@ impl Hatagenpei {
     }
 
     pub fn get_victory_or_defeat(self: &Self) -> Result<VictoryOrDefeat, HatagenPeiError> {
-        return Self::get_victory_or_defeat_(&self.player1, &self.player2);
+        if self.player1.got_score.matoi {
+            return Ok(VictoryOrDefeat::Player1Win);
+        } else if self.player2.got_score.matoi {
+            return Ok(VictoryOrDefeat::Player2Win);
+        } else {
+            return Ok(VictoryOrDefeat::YetPlaying);
+        }
     }
 
     /// サイコロを振り、行うコマンドを返す
@@ -368,19 +374,6 @@ impl Hatagenpei {
             .unwrap();
 
         return cmd.clone();
-    }
-
-    fn get_victory_or_defeat_(
-        player1: &Player,
-        player2: &Player,
-    ) -> Result<VictoryOrDefeat, HatagenPeiError> {
-        if player1.got_score.matoi {
-            return Ok(VictoryOrDefeat::Player1Win);
-        } else if player2.got_score.matoi {
-            return Ok(VictoryOrDefeat::Player2Win);
-        } else {
-            return Ok(VictoryOrDefeat::YetPlaying);
-        }
     }
 }
 
