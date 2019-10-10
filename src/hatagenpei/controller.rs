@@ -20,11 +20,6 @@ const REDIS_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
 const REDIS_HATAGENPEI_RESULT_KEY: &str = "hatagenpei_results";
 const HATAGENPEI_INIT_SCORE: i32 = 29; // 小旗が両替できるように10x(x>=0) + 9 本持ちで開始すること
 
-#[derive(Clone, Serialize, Deserialize)]
-struct PlayerPair {
-    user: Player,
-    bot: Player,
-}
 
 #[derive(Clone, Serialize, Deserialize)]
 struct WinLose {
@@ -41,14 +36,22 @@ impl WinLose {
     }
 }
 
-impl PlayerPair {
-    fn new(user: &Player, bot: &Player) -> PlayerPair {
-        return PlayerPair {
+
+#[derive(Clone, Serialize, Deserialize)]
+struct Progress {
+    user: Player,
+    bot: Player,
+}
+
+impl Progress {
+    fn new(user: &Player, bot: &Player) -> Progress {
+        return Progress {
             user: user.clone(),
             bot: bot.clone(),
         };
     }
 }
+
 
 pub struct HatagenpeiController {
     bot_name: String,
@@ -57,11 +60,11 @@ pub struct HatagenpeiController {
 
 trait ScoreOperation {
     /// player_name で指定されたプレイヤーの情報を取得する。スコアがまだなかった場合は、初期値が insert されたあと、取得される。
-    fn get_score(&mut self, player_name: &str) -> PlayerPair;
-    /// player_pair で指定されたプレイヤーの情報を登録する。すでに登録済みの場合は、上書きされる
-    fn insert_score(&mut self, player_pair: &PlayerPair) -> bool;
-    /// player_name で指定されたプレイヤーのスコアを削除する。
-    fn delete_score(&mut self, player_name: &str) -> bool;
+    fn get_progress(&mut self, player_name: &str) -> Progress;
+    /// progress で指定されたプレイヤーの情報を登録する。すでに登録済みの場合は、上書きされる
+    fn insert_progress(&mut self, progress: &Progress) -> bool;
+    /// player_name で指定されたプレイヤーの情報を削除する。
+    fn delete_progress(&mut self, player_name: &str) -> bool;
     /// player_name で指定されたプレイヤーの勝敗を登録する。
     fn update_result(&mut self, player_name: &str, is_player_win: bool) -> bool;
     // TODO get_result で、指定されたプレイヤーの勝敗を取得できるようにしたい
@@ -69,7 +72,7 @@ trait ScoreOperation {
 }
 
 struct ScoresInMap {
-    score_map: BTreeMap<String, PlayerPair>,
+    score_map: BTreeMap<String, Progress>,
     result_map: BTreeMap<String, WinLose>,
     bot_name: String,
 }
@@ -99,10 +102,10 @@ impl ScoresInRedis {
 }
 
 impl ScoreOperation for ScoresInMap {
-    fn get_score(&mut self, player_name: &str) -> PlayerPair {
+    fn get_progress(&mut self, player_name: &str) -> Progress {
         match self.score_map.get(player_name) {
             None => {
-                self.insert_score(&PlayerPair::new(
+                self.insert_progress(&Progress::new(
                     &Player::new(
                         player_name.to_string(),
                         Score {
@@ -133,12 +136,12 @@ impl ScoreOperation for ScoresInMap {
         return self.score_map.get(player_name).unwrap().clone();
     }
 
-    fn insert_score(&mut self, player_pair: &PlayerPair) -> bool {
+    fn insert_progress(&mut self, progress: &Progress) -> bool {
         self.score_map
-            .insert(player_pair.user.name.to_string(), player_pair.clone());
+            .insert(progress.user.name.to_string(), progress.clone());
         return true;
     }
-    fn delete_score(&mut self, player_name: &str) -> bool {
+    fn delete_progress(&mut self, player_name: &str) -> bool {
         self.score_map.remove(player_name);
         return true;
     }
@@ -166,23 +169,23 @@ impl ScoreOperation for ScoresInRedis {
     //! これは、エラーハンドリングをちゃんと行ったとしても、特にリカバリができるわけでもないため
     //! どちらでも良いなら、panic させてしまう方が実装的には楽
     //!
-    fn get_score(&mut self, player_name: &str) -> PlayerPair {
+    fn get_progress(&mut self, player_name: &str) -> Progress {
         // TODO: エラーハンドリング
 
         //  TODO: DBへの接続は、new するときにやってしまったほうがよいかも
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
         let get_result: RedisResult<String> = con.hget(REDIS_HATAGENPEI_PROGRESS_KEY, player_name);
-        let player_pair;
+        let progress;
 
         // スコアを json 形式で取り出す
         match get_result {
             Ok(json) => {
-                player_pair = serde_json::from_str(&json[..]).unwrap();
+                progress = serde_json::from_str(&json[..]).unwrap();
             }
             // 取り出せなかった場合、insert しておく
             Err(_) => {
-                player_pair = PlayerPair::new(
+                progress = Progress::new(
                     &Player::new(
                         player_name.to_string(),
                         Score {
@@ -207,30 +210,30 @@ impl ScoreOperation for ScoresInRedis {
                     ),
                 );
 
-                if self.insert_score(&player_pair) {
+                if self.insert_progress(&progress) {
                 } else {
-                    // TODO insert_score に失敗した場合はエラー扱いにしたい
+                    // TODO insert_progress に失敗した場合はエラー扱いにしたい
                 }
             }
         }
-        return player_pair;
+        return progress;
     }
 
-    fn insert_score(&mut self, player_pair: &PlayerPair) -> bool {
+    fn insert_progress(&mut self, progress: &Progress) -> bool {
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
-        let s = serde_json::to_string(player_pair).unwrap();
+        let s = serde_json::to_string(progress).unwrap();
         let _: () = con
             .hset(
                 REDIS_HATAGENPEI_PROGRESS_KEY,
-                player_pair.user.name.clone(),
+                progress.user.name.clone(),
                 s,
             )
             .unwrap();
         return true;
     }
 
-    fn delete_score(&mut self, player_name: &str) -> bool {
+    fn delete_progress(&mut self, player_name: &str) -> bool {
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
         let _res: i32 = con
@@ -282,12 +285,14 @@ impl HatagenpeiController {
 
     /// 2step旗源平の実行を行う（player -> bot）
     pub fn step(&mut self, player_name: &str) -> Vec<String> {
-        let player_pair = self.score_operator.get_score(player_name);
+        let progress = self.score_operator.get_progress(player_name);
 
         // 現在の状態でゲームを行う
-        let mut game = Hatagenpei::new(player_pair.user, player_pair.bot, PlayerTurn::Player1);
+        let mut game = Hatagenpei::new(progress.user, progress.bot, PlayerTurn::Player1);
 
         let mut finres = vec![];
+
+        // (i == 0) => user play, (i == 1) => bot play
         for i in 0..2 {
             let mut res = game.next();
             finres.append(&mut res);
@@ -296,9 +301,9 @@ impl HatagenpeiController {
                 Ok(VictoryOrDefeat::YetPlaying) => {
                     // ループ終了時
                     if i == 1 {
-                        let (p1, p2) = game.get_score();
+                        let (p1, p2) = game.get_players();
                         // スコアの再登録
-                        self.score_operator.insert_score(&PlayerPair::new(p1, p2));
+                        self.score_operator.insert_progress(&Progress::new(p1, p2));
                     }
                 }
                 Ok(win_player) => {
@@ -312,7 +317,7 @@ impl HatagenpeiController {
                     finres.push("".to_string());
 
                     // ゲームが終わったので、進行状態を削除する
-                    self.score_operator.delete_score(player_name);
+                    self.score_operator.delete_progress(player_name);
 
                     // 勝敗を書く
                     self.score_operator.update_result(

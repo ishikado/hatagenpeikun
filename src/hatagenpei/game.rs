@@ -341,7 +341,7 @@ impl Hatagenpei {
     }
 
     /// (player1, player2) というタプルで、現在の Player ごとのスコアを取得する。
-    pub fn get_score(&self) -> (&Player, &Player) {
+    pub fn get_players(&self) -> (&Player, &Player) {
         return (&self.player1, &self.player2);
     }
 
