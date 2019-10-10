@@ -61,7 +61,7 @@ pub enum PlayerTurn {
 }
 
 #[derive(PartialEq)]
-pub enum VictoryOrDefat {
+pub enum VictoryOrDefeat {
     Player1Win,
     Player2Win,
     YetPlaying,
@@ -274,7 +274,7 @@ impl<'a> Hatagenpei<'a> {
 
             // まだプレイ中でなければならない
             match self.get_victory_or_defeat() {
-                Ok(VictoryOrDefat::YetPlaying) => {}
+                Ok(VictoryOrDefeat::YetPlaying) => {}
                 _ => {
                     return res;
                 }
@@ -285,7 +285,7 @@ impl<'a> Hatagenpei<'a> {
             res.push("## サイコロの結果".to_string());
             loop {
                 match self.get_victory_or_defeat() {
-                    Ok(VictoryOrDefat::YetPlaying) => {
+                    Ok(VictoryOrDefeat::YetPlaying) => {
                         // まだプレイ中の場合のみダイスを振る
                         let cmd = Self::diceroll();
 
@@ -338,7 +338,7 @@ impl<'a> Hatagenpei<'a> {
         return (&self.player1, &self.player2);
     }
 
-    pub fn get_victory_or_defeat(self: &Self) -> Result<VictoryOrDefat, HatagenPeiError> {
+    pub fn get_victory_or_defeat(self: &Self) -> Result<VictoryOrDefeat, HatagenPeiError> {
         return Self::get_victory_or_defeat_(&self.player1, &self.player2);
     }
 
@@ -364,13 +364,13 @@ impl<'a> Hatagenpei<'a> {
     fn get_victory_or_defeat_(
         player1: &Player,
         player2: &Player,
-    ) -> Result<VictoryOrDefat, HatagenPeiError> {
+    ) -> Result<VictoryOrDefeat, HatagenPeiError> {
         if player1.score.my_score == 0 && player2.score.my_score > 0 {
-            return Ok(VictoryOrDefat::Player2Win);
+            return Ok(VictoryOrDefeat::Player2Win);
         } else if player1.score.my_score > 0 && player2.score.my_score == 0 {
-            return Ok(VictoryOrDefat::Player1Win);
+            return Ok(VictoryOrDefeat::Player1Win);
         } else if player1.score.my_score > 0 && player2.score.my_score > 0 {
-            return Ok(VictoryOrDefat::YetPlaying);
+            return Ok(VictoryOrDefeat::YetPlaying);
         } else {
             return Err(HatagenPeiError::Unexpected);
         }
@@ -407,13 +407,13 @@ mod tests {
             println!("");
 
             match hg.get_victory_or_defeat() {
-                Ok(VictoryOrDefat::YetPlaying) => {
+                Ok(VictoryOrDefeat::YetPlaying) => {
                 }
-                Ok(VictoryOrDefat::Player1Win) => {
+                Ok(VictoryOrDefeat::Player1Win) => {
                     println!("{} win!!", first_player_name);
                     break;
                 }
-                Ok(VictoryOrDefat::Player2Win) => {
+                Ok(VictoryOrDefeat::Player2Win) => {
                     println!("{} win!!", second_player_name);
                     break;
                 }

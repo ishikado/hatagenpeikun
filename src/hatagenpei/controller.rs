@@ -18,7 +18,7 @@ use super::game::*;
 // TODO: このあたりの設定は https://docs.rs/config/0.9.3/config/ を使って、Settings.toml から指定できるようにしたい
 const REDIS_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
 const REDIS_HATAGENPEI_RESULT_KEY: &str = "hatagenpei_results";
-const HATAGENPEI_INIT_SCORE: i32 = 30;
+const HATAGENPEI_INIT_SCORE: i32 = 29; // 小旗が両替できるように10x(x>=0) + 9 本持ちで開始すること
 
 #[derive(Clone, Serialize, Deserialize)]
 struct ScorePair {
@@ -261,7 +261,7 @@ impl HatagenpeiController {
             finres.append(&mut res);
 
             match game.get_victory_or_defeat() {
-                Ok(VictoryOrDefat::YetPlaying) => {
+                Ok(VictoryOrDefeat::YetPlaying) => {
                     // ループ終了時
                     if i == 1 {
                         let (p1, p2) = game.get_score();
@@ -274,9 +274,9 @@ impl HatagenpeiController {
                 }
                 Ok(win_player) => {
                     let win_player_name = match win_player {
-                        VictoryOrDefat::Player1Win => player_name.to_string(),
-                        VictoryOrDefat::Player2Win => self.bot_name.clone(),
-                        VictoryOrDefat::YetPlaying => panic!("unexpected!"),
+                        VictoryOrDefeat::Player1Win => player_name.to_string(),
+                        VictoryOrDefeat::Player2Win => self.bot_name.clone(),
+                        VictoryOrDefeat::YetPlaying => panic!("unexpected!"),
                     };
 
                     finres.push(format!("{} の勝ち", win_player_name));
@@ -288,7 +288,7 @@ impl HatagenpeiController {
                     // 勝敗を書く
                     self.score_operator.update_result(
                         player_name,
-                        (win_player == VictoryOrDefat::Player1Win) ^ (i == 1),
+                        (win_player == VictoryOrDefeat::Player1Win) ^ (i == 1),
                     );
 
                     break;
@@ -325,3 +325,4 @@ mod tests {
 
     }
 }
+
