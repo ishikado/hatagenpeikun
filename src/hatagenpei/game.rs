@@ -274,19 +274,16 @@ impl<'a> Hatagenpei<'a> {
                     Ok(VictoryOrDefat::YetPlaying) => {
                         // まだプレイ中の場合のみダイスを振る
                         let cmd = Self::diceroll();
-                        let mut get_player;
-                        let mut send_player;
 
-                        if (cmd.point > 0) as i32 ^ (self.turn == PlayerTurn::Player1) as i32 > 0 {
-                            get_player = &mut self.player2;
-                            send_player = &mut self.player1;
-                        } else {
-                            get_player = &mut self.player1;
-                            send_player = &mut self.player2;
-                        }
+                        // 旗を返すプレイヤーを決定
+                        let send_player = 
+                            if (cmd.point > 0) as i32 ^ (self.turn == PlayerTurn::Player1) as i32 > 0 {
+                                &mut self.player1
+                            } else {
+                                &mut self.player2
+                            };
 
                         let v = std::cmp::min(cmd.point.abs(), send_player.score.score);
-                        get_player.score.score += v;
                         send_player.score.score -= v;
 
                         res.push(format!("- {}", cmd.explain.to_string()));
@@ -374,45 +371,45 @@ mod tests {
     fn hatagenpei_tests() {
         // TODO : print せずに、機械的に比較できるテストを実装したい
 
-        // use crate::hatagenpei::game::*;
+    //     use crate::hatagenpei::game::*;
 
-        // let first_player_name = "first";
-        // let second_player_name = "second";
-        // let initial_score = 30;
+    //     let first_player_name = "first";
+    //     let second_player_name = "second";
+    //     let initial_score = 30;
 
-        // let p1 = Player::new(first_player_name, Score{score : initial_score});
-        // let p2 = Player::new(second_player_name, Score{score : initial_score});
+    //     let p1 = Player::new(first_player_name, Score{score : initial_score});
+    //     let p2 = Player::new(second_player_name, Score{score : initial_score});
 
-        // let mut hg = Hatagenpei::new(p1, p2, PlayerTurn::Player1);
+    //     let mut hg = Hatagenpei::new(p1, p2, PlayerTurn::Player1);
 
-        // let mut call_next_count = 0;
+    //     let mut call_next_count = 0;
 
-        // loop {
-        //     let v = hg.next();
-        //     call_next_count += 1;
+    //     loop {
+    //         let v = hg.next();
+    //         call_next_count += 1;
 
-        //     for i in v {
-        //         println!("{:?}", i);
-        //     }
+    //         for i in v {
+    //             println!("{:?}", i);
+    //         }
 
-        //     println!("");
+    //         println!("");
 
-        //     match hg.get_victory_or_defeat() {
-        //         Ok(VictoryOrDefat::YetPlaying) => {
-        //         }
-        //         Ok(VictoryOrDefat::Player1Win) => {
-        //             println!("{} win!!", first_player_name);
-        //             break;
-        //         }
-        //         Ok(VictoryOrDefat::Player2Win) => {
-        //             println!("{} win!!", second_player_name);
-        //             break;
-        //         }
-        //         Err(err) => {
-        //             println!("{:?}", err);
-        //         }
-        //     }
-        // }
-        // println!("call_next_count = {}", call_next_count);
-    }
+    //         match hg.get_victory_or_defeat() {
+    //             Ok(VictoryOrDefat::YetPlaying) => {
+    //             }
+    //             Ok(VictoryOrDefat::Player1Win) => {
+    //                 println!("{} win!!", first_player_name);
+    //                 break;
+    //             }
+    //             Ok(VictoryOrDefat::Player2Win) => {
+    //                 println!("{} win!!", second_player_name);
+    //                 break;
+    //             }
+    //             Err(err) => {
+    //                 println!("{:?}", err);
+    //             }
+    //         }
+    //     }
+    //     println!("call_next_count = {}", call_next_count);
+    // }
 }
