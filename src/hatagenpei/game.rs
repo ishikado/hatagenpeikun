@@ -21,9 +21,11 @@ impl Score {
         let obata = self.score / 50;
         let chubata = (self.score % 50) / 10;
         let kobata = (self.score % 50) % 10;
+        let m = if self.matoi { 1 } else { 0 };
+
         return format!(
-            "大旗 : {} 本、中旗 : {} 本、小旗 : {} 本",
-            obata, chubata, kobata
+            "まとい : {} 本、 大旗 : {} 本、中旗 : {} 本、小旗 : {} 本",
+            m, obata, chubata, kobata
         )
         .to_string();
     }
@@ -289,9 +291,21 @@ impl Hatagenpei {
                                 (&mut self.player2, &mut self.player1)
                             };
 
-                        let v = std::cmp::min(cmd.point.abs(), send_player.my_score.score);
-                        send_player.my_score.score -= v;
-                        got_player.got_score.score += v;
+                        
+                        {
+                            // TOOD: このあたりのやり取りをもうすこしきれいにしたい
+
+                            // まといのやり取り
+                            if cmd.point.abs() > send_player.my_score.score {
+                                send_player.my_score.matoi = false;
+                                got_player.got_score.matoi = true;
+                            }
+
+                            // 旗のやり取り
+                            let v = std::cmp::min(cmd.point.abs(), send_player.my_score.score);
+                            send_player.my_score.score -= v;
+                            got_player.got_score.score += v;
+                        }
 
                         res.push(format!("- {}", cmd.explain.to_string()));
 
@@ -357,14 +371,14 @@ impl Hatagenpei {
         player1: &Player,
         player2: &Player,
     ) -> Result<VictoryOrDefeat, HatagenPeiError> {
-        if player1.my_score.score == 0 && player2.my_score.score > 0 {
-            return Ok(VictoryOrDefeat::Player2Win);
-        } else if player1.my_score.score > 0 && player2.my_score.score == 0 {
+        if player1.got_score.matoi {
             return Ok(VictoryOrDefeat::Player1Win);
-        } else if player1.my_score.score > 0 && player2.my_score.score > 0 {
+        }
+        else if player2.got_score.matoi {
+            return Ok(VictoryOrDefeat::Player2Win);
+        }
+        else{
             return Ok(VictoryOrDefeat::YetPlaying);
-        } else {
-            return Err(HatagenPeiError::Unexpected);
         }
     }
 }
