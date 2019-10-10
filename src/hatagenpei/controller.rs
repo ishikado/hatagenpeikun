@@ -21,9 +21,9 @@ const REDIS_HATAGENPEI_RESULT_KEY: &str = "hatagenpei_results";
 const HATAGENPEI_INIT_SCORE: i32 = 29; // 小旗が両替できるように10x(x>=0) + 9 本持ちで開始すること
 
 #[derive(Clone, Serialize, Deserialize)]
-struct ScorePair {
-    player_score: Score,
-    bot_score: Score,
+struct PlayerPair {
+    user : Player,
+    bot : Player
 }
 
 
@@ -42,11 +42,11 @@ impl WinLose {
     }
 }
 
-impl ScorePair {
-    fn new(player_score: &Score, bot_score: &Score) -> ScorePair {
-        return ScorePair {
-            player_score: player_score.clone(),
-            bot_score: bot_score.clone(),
+impl PlayerPair {
+    fn new(user: &Player, bot: &Player) -> PlayerPair {
+        return PlayerPair {
+            user : user.clone(),
+            bot : bot.clone()
         };
     }
 }
@@ -57,10 +57,10 @@ pub struct HatagenpeiController {
 }
 
 trait ScoreOperation {
-    /// player_name で指定されたプレイヤーのスコアを取得する。スコアがまだなかった場合は、初期値が insert されたあと、取得される。
-    fn get_score(&mut self, player_name: &str) -> ScorePair;
-    /// player_name で指定されたプレイヤーのスコアを登録する。すでに登録済みの場合は、上書きされる
-    fn insert_score(&mut self, player_name: &str, score_pair: &ScorePair) -> bool;
+    /// player_name で指定されたプレイヤーの情報を取得する。スコアがまだなかった場合は、初期値が insert されたあと、取得される。
+    fn get_score(&mut self, player_name: &str) -> PlayerPair;
+    /// player_pair で指定されたプレイヤーの情報を登録する。すでに登録済みの場合は、上書きされる
+    fn insert_score(&mut self, player_pair: &PlayerPair) -> bool;
     /// player_name で指定されたプレイヤーのスコアを削除する。
     fn delete_score(&mut self, player_name: &str) -> bool;
     /// player_name で指定されたプレイヤーの勝敗を登録する。
@@ -70,39 +70,46 @@ trait ScoreOperation {
 }
 
 struct ScoresInMap {
-    score_map: BTreeMap<String, ScorePair>,
+    score_map: BTreeMap<String, PlayerPair>,
     result_map: BTreeMap<String, WinLose>,
+    bot_name: String
 }
 
 struct ScoresInRedis {
     redis_uri: String,
+    bot_name: String
 }
 
 impl ScoresInMap {
-    pub fn new() -> ScoresInMap {
+    pub fn new(bot_name: String) -> ScoresInMap {
         return ScoresInMap {
             score_map: BTreeMap::new(),
             result_map: BTreeMap::new(),
+            bot_name: bot_name
         };
     }
 }
 
 impl ScoresInRedis {
-    pub fn new(redis_uri: &String) -> ScoresInRedis {
+    pub fn new(redis_uri: &String, bot_name: String) -> ScoresInRedis {
         return ScoresInRedis {
             redis_uri: redis_uri.clone(),
+            bot_name: bot_name
         };
     }
 }
 
 impl ScoreOperation for ScoresInMap {
-    fn get_score(&mut self, player_name: &str) -> ScorePair {
+    fn get_score(&mut self, player_name: &str) -> PlayerPair {
         match self.score_map.get(player_name) {
             None => {
                 self.insert_score(
-                    player_name,
-                    &ScorePair::new(&Score{my_score : HATAGENPEI_INIT_SCORE, got_score : 0},
-                                    &Score{my_score : HATAGENPEI_INIT_SCORE, got_score : 0}),
+                    &PlayerPair::new(&Player::new(player_name.to_string(), 
+                                                  Score{score: HATAGENPEI_INIT_SCORE, matoi: true},
+                                                  Score{score: 0, matoi: false}),
+                                     &Player::new(self.bot_name.clone(),
+                                                  Score{score: HATAGENPEI_INIT_SCORE, matoi: true},
+                                                  Score{score: 0, matoi: false}))
                 );
             }
             _ => {}
@@ -111,9 +118,9 @@ impl ScoreOperation for ScoresInMap {
         return self.score_map.get(player_name).unwrap().clone();
     }
 
-    fn insert_score(&mut self, player_name: &str, score_pair: &ScorePair) -> bool {
+    fn insert_score(&mut self, player_pair: &PlayerPair) -> bool {
         self.score_map
-            .insert(player_name.to_string(), score_pair.clone());
+            .insert(player_pair.user.name.to_string(), player_pair.clone());
         return true;
     }
     fn delete_score(&mut self, player_name: &str) -> bool {
@@ -149,41 +156,45 @@ impl ScoreOperation for ScoresInRedis {
     //! これは、エラーハンドリングをちゃんと行ったとしても、特にリカバリができるわけでもないため
     //! どちらでも良いなら、panic させてしまう方が実装的には楽
     //!
-    fn get_score(&mut self, player_name: &str) -> ScorePair {
+    fn get_score(&mut self, player_name: &str) -> PlayerPair {
         // TODO: エラーハンドリング
 
         //  TODO: DBへの接続は、new するときにやってしまったほうがよいかも
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
         let get_result: RedisResult<String> = con.hget(REDIS_HATAGENPEI_PROGRESS_KEY, player_name);
-        let score_pair;
+        let player_pair;
 
         // スコアを json 形式で取り出す
         match get_result {
             Ok(json) => {
-                score_pair = serde_json::from_str(&json[..]).unwrap();
+                player_pair = serde_json::from_str(&json[..]).unwrap();
             }
             // 取り出せなかった場合、insert しておく
             Err(_) => {
-                score_pair = ScorePair::new(&Score{my_score : HATAGENPEI_INIT_SCORE, got_score : 0},
-                                            &Score{my_score : HATAGENPEI_INIT_SCORE, got_score : 0});
 
-                if self.insert_score(player_name, &score_pair) {
+                player_pair = PlayerPair::new(&Player::new(player_name.to_string(), 
+                                             Score{score: HATAGENPEI_INIT_SCORE, matoi: true},
+                                             Score{score: 0, matoi: false}),
+                                &Player::new(self.bot_name.clone(),
+                                             Score{score: HATAGENPEI_INIT_SCORE, matoi: true},
+                                             Score{score: 0, matoi: false}));
+
+                if self.insert_score(&player_pair) {
                 } else {
                     // TODO insert_score に失敗した場合はエラー扱いにしたい
-
                 }
             }
         }
-        return score_pair;
+        return player_pair;
     }
 
-    fn insert_score(&mut self, player_name: &str, score_pair: &ScorePair) -> bool {
+    fn insert_score(&mut self, player_pair: &PlayerPair) -> bool {
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
-        let s = serde_json::to_string(score_pair).unwrap();
+        let s = serde_json::to_string(player_pair).unwrap();
         let _: () = con
-            .hset(REDIS_HATAGENPEI_PROGRESS_KEY, player_name, s)
+            .hset(REDIS_HATAGENPEI_PROGRESS_KEY, player_pair.user.name.clone(), s)
             .unwrap();
         return true;
     }
@@ -228,8 +239,8 @@ impl ScoreOperation for ScoresInRedis {
 impl HatagenpeiController {
     pub fn new(redis_uri: &Option<String>, bot_name: &String) -> HatagenpeiController {
         let score_operator: Box<dyn ScoreOperation> = match redis_uri {
-            None => Box::new(ScoresInMap::new()),
-            Some(uri) => Box::new(ScoresInRedis::new(uri)),
+            None => Box::new(ScoresInMap::new(bot_name.clone())),
+            Some(uri) => Box::new(ScoresInRedis::new(uri, bot_name.clone())),
         };
 
         return HatagenpeiController {
@@ -240,18 +251,12 @@ impl HatagenpeiController {
 
     /// 2step旗源平の実行を行う（player -> bot）
     pub fn step(&mut self, player_name: &str) -> Vec<String> {
-        let score_pair = self.score_operator.get_score(player_name);
+        let player_pair = self.score_operator.get_score(player_name);
 
         // 現在の状態でゲームを行う
         let mut game = Hatagenpei::new(
-            Player::new(
-                player_name,
-                score_pair.player_score
-            ),
-            Player::new(
-                &self.bot_name[..],
-                score_pair.bot_score,
-            ),
+            player_pair.user,
+            player_pair.bot,
             PlayerTurn::Player1,
         );
 
@@ -267,8 +272,7 @@ impl HatagenpeiController {
                         let (p1, p2) = game.get_score();
                         // スコアの再登録
                         self.score_operator.insert_score(
-                            player_name,
-                            &ScorePair::new(&p1.score, &p2.score),
+                            &PlayerPair::new(p1, p2),
                         );
                     }
                 }

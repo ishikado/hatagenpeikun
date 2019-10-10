@@ -11,26 +11,16 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Score {
-    pub my_score: i32,
-    pub got_score: i32
+    pub score: i32,
+    pub matoi: bool,
 }
 
 
 impl Score {
-    fn my_score_to_string(&self) -> String {
-        let obata = self.my_score / 50;
-        let chubata = (self.my_score % 50) / 10;
-        let kobata = (self.my_score % 50) % 10;
-        return format!(
-            "大旗 : {} 本、中旗 : {} 本、小旗 : {} 本",
-            obata, chubata, kobata
-        )
-        .to_string();
-    }
-    fn got_score_to_string(&self) -> String {
-        let obata = self.got_score / 50;
-        let chubata = (self.got_score % 50) / 10;
-        let kobata = (self.got_score % 50) % 10;
+    fn to_string(&self) -> String {
+        let obata = self.score / 50;
+        let chubata = (self.score % 50) / 10;
+        let kobata = (self.score % 50) % 10;
         return format!(
             "大旗 : {} 本、中旗 : {} 本、小旗 : {} 本",
             obata, chubata, kobata
@@ -39,16 +29,18 @@ impl Score {
     }
 }
 
-#[derive(Clone)]
-pub struct Player<'a> {
-    pub score: Score,
-    pub name: &'a str,
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Player {
+    pub my_score: Score,
+    pub got_score: Score,
+    pub name: String,
 }
 
-impl<'a> Player<'a> {
-    pub fn new(name: &'a str, score: Score) -> Player<'a> {
+impl Player {
+    pub fn new(name: String, my_score: Score, got_score : Score) -> Player {
         return Player {
-            score: score,
+            my_score: my_score,
+            got_score: got_score,
             name: name,
         };
     }
@@ -67,9 +59,9 @@ pub enum VictoryOrDefeat {
     YetPlaying,
 }
 
-pub struct Hatagenpei<'a> {
-    pub player1: Player<'a>,
-    pub player2: Player<'a>,
+pub struct Hatagenpei {
+    pub player1: Player,
+    pub player2: Player,
     pub turn: PlayerTurn,
 }
 
@@ -237,13 +229,13 @@ const HATAGENPEICOMMANDS: [HatagenpeiCommand; 21] = [
     },
 ];
 
-impl<'a> Hatagenpei<'a> {
+impl Hatagenpei {
     /// Hatagenpei インスタンスを作成する
     pub fn new(
-        player1: Player<'a>,
-        player2: Player<'a>,
+        player1: Player,
+        player2: Player,
         first_player: PlayerTurn,
-    ) -> Hatagenpei<'a> {
+    ) -> Hatagenpei {
         return Hatagenpei {
             player1: player1,
             player2: player2,
@@ -297,9 +289,9 @@ impl<'a> Hatagenpei<'a> {
                                 (&mut self.player2, &mut self.player1)
                             };
 
-                        let v = std::cmp::min(cmd.point.abs(), send_player.score.my_score);
-                        send_player.score.my_score -= v;
-                        got_player.score.got_score += v;
+                        let v = std::cmp::min(cmd.point.abs(), send_player.my_score.score);
+                        send_player.my_score.score -= v;
+                        got_player.got_score.score += v;
 
                         res.push(format!("- {}", cmd.explain.to_string()));
 
@@ -324,8 +316,8 @@ impl<'a> Hatagenpei<'a> {
 
         for player in [&self.player1, &self.player2].iter() {
             res.push(format!("- {}", player.name));
-            res.push(format!("   - 自分の旗 【{}】", player.score.my_score_to_string()));
-            res.push(format!("   - 取った旗 【{}】", player.score.got_score_to_string()));
+            res.push(format!("   - 自分の旗 【{}】", player.my_score.to_string()));
+            res.push(format!("   - 取った旗 【{}】", player.got_score.to_string()));
         }
 
         res.push("".to_string());
@@ -365,11 +357,11 @@ impl<'a> Hatagenpei<'a> {
         player1: &Player,
         player2: &Player,
     ) -> Result<VictoryOrDefeat, HatagenPeiError> {
-        if player1.score.my_score == 0 && player2.score.my_score > 0 {
+        if player1.my_score.score == 0 && player2.my_score.score > 0 {
             return Ok(VictoryOrDefeat::Player2Win);
-        } else if player1.score.my_score > 0 && player2.score.my_score == 0 {
+        } else if player1.my_score.score > 0 && player2.my_score.score == 0 {
             return Ok(VictoryOrDefeat::Player1Win);
-        } else if player1.score.my_score > 0 && player2.score.my_score > 0 {
+        } else if player1.my_score.score > 0 && player2.my_score.score > 0 {
             return Ok(VictoryOrDefeat::YetPlaying);
         } else {
             return Err(HatagenPeiError::Unexpected);
@@ -389,8 +381,8 @@ mod tests {
         let second_player_name = "second";
         let initial_score = 30;
 
-        let p1 = Player::new(first_player_name, Score{my_score : initial_score, got_score : 0});
-        let p2 = Player::new(second_player_name, Score{my_score : initial_score, got_score : 0});
+        let p1 = Player::new(first_player_name.to_string(), Score{score : initial_score, matoi : true}, Score{score : 0, matoi : false});
+        let p2 = Player::new(second_player_name.to_string(), Score{score : initial_score, matoi : true}, Score{score : 0, matoi : false});
 
         let mut hg = Hatagenpei::new(p1, p2, PlayerTurn::Player1);
 
