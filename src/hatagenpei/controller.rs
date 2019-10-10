@@ -22,9 +22,10 @@ const HATAGENPEI_INIT_SCORE: i32 = 30;
 
 #[derive(Clone, Serialize, Deserialize)]
 struct ScorePair {
-    player_score: i32,
-    bot_score: i32,
+    player_score: Score,
+    bot_score: Score,
 }
+
 
 #[derive(Clone, Serialize, Deserialize)]
 struct WinLose {
@@ -42,10 +43,10 @@ impl WinLose {
 }
 
 impl ScorePair {
-    fn new(player_score: i32, bot_score: i32) -> ScorePair {
+    fn new(player_score: &Score, bot_score: &Score) -> ScorePair {
         return ScorePair {
-            player_score: player_score,
-            bot_score: bot_score,
+            player_score: player_score.clone(),
+            bot_score: bot_score.clone(),
         };
     }
 }
@@ -100,7 +101,8 @@ impl ScoreOperation for ScoresInMap {
             None => {
                 self.insert_score(
                     player_name,
-                    &ScorePair::new(HATAGENPEI_INIT_SCORE, HATAGENPEI_INIT_SCORE),
+                    &ScorePair::new(&Score{my_score : HATAGENPEI_INIT_SCORE, got_score : 0},
+                                    &Score{my_score : HATAGENPEI_INIT_SCORE, got_score : 0}),
                 );
             }
             _ => {}
@@ -163,7 +165,9 @@ impl ScoreOperation for ScoresInRedis {
             }
             // 取り出せなかった場合、insert しておく
             Err(_) => {
-                score_pair = ScorePair::new(HATAGENPEI_INIT_SCORE, HATAGENPEI_INIT_SCORE);
+                score_pair = ScorePair::new(&Score{my_score : HATAGENPEI_INIT_SCORE, got_score : 0},
+                                            &Score{my_score : HATAGENPEI_INIT_SCORE, got_score : 0});
+
                 if self.insert_score(player_name, &score_pair) {
                 } else {
                     // TODO insert_score に失敗した場合はエラー扱いにしたい
@@ -242,15 +246,11 @@ impl HatagenpeiController {
         let mut game = Hatagenpei::new(
             Player::new(
                 player_name,
-                Score {
-                    score: score_pair.player_score,
-                },
+                score_pair.player_score
             ),
             Player::new(
                 &self.bot_name[..],
-                Score {
-                    score: score_pair.bot_score,
-                },
+                score_pair.bot_score,
             ),
             PlayerTurn::Player1,
         );
@@ -268,7 +268,7 @@ impl HatagenpeiController {
                         // スコアの再登録
                         self.score_operator.insert_score(
                             player_name,
-                            &ScorePair::new(p1.score.score, p2.score.score),
+                            &ScorePair::new(&p1.score, &p2.score),
                         );
                     }
                 }

@@ -6,17 +6,31 @@ extern crate rand;
 use rand::prelude::*;
 use std::mem;
 use std::string::ToString;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone)]
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Score {
-    pub score: i32,
+    pub my_score: i32,
+    pub got_score: i32
 }
 
-impl ToString for Score {
-    fn to_string(&self) -> String {
-        let obata = self.score / 100;
-        let chubata = (self.score % 100) / 10;
-        let kobata = (self.score % 100) % 10;
+
+impl Score {
+    fn my_score_to_string(&self) -> String {
+        let obata = self.my_score / 100;
+        let chubata = (self.my_score % 100) / 10;
+        let kobata = (self.my_score % 100) % 10;
+        return format!(
+            "大旗 : {} 本、中旗 : {} 本、小旗 : {} 本",
+            obata, chubata, kobata
+        )
+        .to_string();
+    }
+    fn got_score_to_string(&self) -> String {
+        let obata = self.got_score / 100;
+        let chubata = (self.got_score % 100) / 10;
+        let kobata = (self.got_score % 100) % 10;
         return format!(
             "大旗 : {} 本、中旗 : {} 本、小旗 : {} 本",
             obata, chubata, kobata
@@ -276,15 +290,16 @@ impl<'a> Hatagenpei<'a> {
                         let cmd = Self::diceroll();
 
                         // 旗を返すプレイヤーを決定
-                        let send_player = 
+                        let (send_player, got_player) = 
                             if (cmd.point > 0) as i32 ^ (self.turn == PlayerTurn::Player1) as i32 > 0 {
-                                &mut self.player1
+                                (&mut self.player1, &mut self.player2)
                             } else {
-                                &mut self.player2
+                                (&mut self.player2, &mut self.player1)
                             };
 
-                        let v = std::cmp::min(cmd.point.abs(), send_player.score.score);
-                        send_player.score.score -= v;
+                        let v = std::cmp::min(cmd.point.abs(), send_player.score.my_score);
+                        send_player.score.my_score -= v;
+                        got_player.score.got_score += v;
 
                         res.push(format!("- {}", cmd.explain.to_string()));
 
@@ -305,17 +320,14 @@ impl<'a> Hatagenpei<'a> {
         }
 
         res.push("".to_string());
-        res.push("## スコア".to_string());
-        res.push(format!(
-            "- {} => {}",
-            self.player1.name,
-            self.player1.score.to_string()
-        ));
-        res.push(format!(
-            "- {} => {}",
-            self.player2.name,
-            self.player2.score.to_string()
-        ));
+        res.push("## 旗状況".to_string());
+
+        for player in [&self.player1, &self.player2].iter() {
+            res.push(format!("- {}", player.name));
+            res.push(format!("   - 自分の旗 【{}】", player.score.my_score_to_string()));
+            res.push(format!("   - 取った旗 【{}】", player.score.got_score_to_string()));
+        }
+
         res.push("".to_string());
 
         return res;
@@ -353,11 +365,11 @@ impl<'a> Hatagenpei<'a> {
         player1: &Player,
         player2: &Player,
     ) -> Result<VictoryOrDefat, HatagenPeiError> {
-        if player1.score.score == 0 && player2.score.score > 0 {
+        if player1.score.my_score == 0 && player2.score.my_score > 0 {
             return Ok(VictoryOrDefat::Player2Win);
-        } else if player1.score.score > 0 && player2.score.score == 0 {
+        } else if player1.score.my_score > 0 && player2.score.my_score == 0 {
             return Ok(VictoryOrDefat::Player1Win);
-        } else if player1.score.score > 0 && player2.score.score > 0 {
+        } else if player1.score.my_score > 0 && player2.score.my_score > 0 {
             return Ok(VictoryOrDefat::YetPlaying);
         } else {
             return Err(HatagenPeiError::Unexpected);
@@ -371,45 +383,45 @@ mod tests {
     fn hatagenpei_tests() {
         // TODO : print せずに、機械的に比較できるテストを実装したい
 
-    //     use crate::hatagenpei::game::*;
+        use crate::hatagenpei::game::*;
 
-    //     let first_player_name = "first";
-    //     let second_player_name = "second";
-    //     let initial_score = 30;
+        let first_player_name = "first";
+        let second_player_name = "second";
+        let initial_score = 30;
 
-    //     let p1 = Player::new(first_player_name, Score{score : initial_score});
-    //     let p2 = Player::new(second_player_name, Score{score : initial_score});
+        let p1 = Player::new(first_player_name, Score{my_score : initial_score, got_score : 0});
+        let p2 = Player::new(second_player_name, Score{my_score : initial_score, got_score : 0});
 
-    //     let mut hg = Hatagenpei::new(p1, p2, PlayerTurn::Player1);
+        let mut hg = Hatagenpei::new(p1, p2, PlayerTurn::Player1);
 
-    //     let mut call_next_count = 0;
+        let mut call_next_count = 0;
 
-    //     loop {
-    //         let v = hg.next();
-    //         call_next_count += 1;
+        loop {
+            let v = hg.next();
+            call_next_count += 1;
 
-    //         for i in v {
-    //             println!("{:?}", i);
-    //         }
+            for i in v {
+                println!("{:?}", i);
+            }
 
-    //         println!("");
+            println!("");
 
-    //         match hg.get_victory_or_defeat() {
-    //             Ok(VictoryOrDefat::YetPlaying) => {
-    //             }
-    //             Ok(VictoryOrDefat::Player1Win) => {
-    //                 println!("{} win!!", first_player_name);
-    //                 break;
-    //             }
-    //             Ok(VictoryOrDefat::Player2Win) => {
-    //                 println!("{} win!!", second_player_name);
-    //                 break;
-    //             }
-    //             Err(err) => {
-    //                 println!("{:?}", err);
-    //             }
-    //         }
-    //     }
-    //     println!("call_next_count = {}", call_next_count);
+            match hg.get_victory_or_defeat() {
+                Ok(VictoryOrDefat::YetPlaying) => {
+                }
+                Ok(VictoryOrDefat::Player1Win) => {
+                    println!("{} win!!", first_player_name);
+                    break;
+                }
+                Ok(VictoryOrDefat::Player2Win) => {
+                    println!("{} win!!", second_player_name);
+                    break;
+                }
+                Err(err) => {
+                    println!("{:?}", err);
+                }
+            }
+        }
+        println!("call_next_count = {}", call_next_count);
     }
 }
