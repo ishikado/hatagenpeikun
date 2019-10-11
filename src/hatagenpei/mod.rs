@@ -1,2 +1,2 @@
 pub mod controller;
-pub mod game;
+mod game;

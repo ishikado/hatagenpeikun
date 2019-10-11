@@ -290,12 +290,12 @@ impl HatagenpeiController {
         // 現在の状態でゲームを行う
         let mut game = Hatagenpei::new(progress.user, progress.bot, PlayerTurn::Player1);
 
-        let mut finres = vec![];
+        let mut gamelog = vec![];
 
         // (i == 0) => user play, (i == 1) => bot play
         for i in 0..2 {
             let mut res = game.next();
-            finres.append(&mut res);
+            gamelog.append(&mut res);
 
             match game.get_victory_or_defeat() {
                 Ok(VictoryOrDefeat::YetPlaying) => {
@@ -313,8 +313,8 @@ impl HatagenpeiController {
                         VictoryOrDefeat::YetPlaying => panic!("unexpected!"),
                     };
 
-                    finres.push(format!("{} の勝ち", win_player_name));
-                    finres.push("".to_string());
+                    gamelog.push(format!("{} の勝ち", win_player_name));
+                    gamelog.push("".to_string());
 
                     // ゲームが終わったので、進行状態を削除する
                     self.score_operator.delete_progress(player_name);
@@ -335,7 +335,7 @@ impl HatagenpeiController {
                 }
             }
         }
-        return finres;
+        return gamelog;
     }
 }
 
