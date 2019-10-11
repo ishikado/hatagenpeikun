@@ -23,7 +23,7 @@ pub fn on_hatagenpei(
         Some(controller) => {
             let res = controller.step(message_user_name);
             let mut s = "```".to_string();
-            for l in res {
+            for l in &res.logs {
                 s.push_str(&l);
                 s.push('\n');
             }

@@ -20,7 +20,6 @@ const REDIS_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
 const REDIS_HATAGENPEI_RESULT_KEY: &str = "hatagenpei_results";
 const HATAGENPEI_INIT_SCORE: i32 = 29; // 小旗が両替できるように10x(x>=0) + 9 本持ちで開始すること
 
-
 #[derive(Clone, Serialize, Deserialize)]
 struct WinLose {
     win: i32,
@@ -36,7 +35,6 @@ impl WinLose {
     }
 }
 
-
 #[derive(Clone, Serialize, Deserialize)]
 struct Progress {
     user: Player,
@@ -51,7 +49,6 @@ impl Progress {
         };
     }
 }
-
 
 pub struct HatagenpeiController {
     bot_name: String,
@@ -224,11 +221,7 @@ impl ScoreOperation for ScoresInRedis {
         let mut con = client.get_connection().unwrap();
         let s = serde_json::to_string(progress).unwrap();
         let _: () = con
-            .hset(
-                REDIS_HATAGENPEI_PROGRESS_KEY,
-                progress.user.name.clone(),
-                s,
-            )
+            .hset(REDIS_HATAGENPEI_PROGRESS_KEY, progress.user.name.clone(), s)
             .unwrap();
         return true;
     }
@@ -270,6 +263,13 @@ impl ScoreOperation for ScoresInRedis {
     }
 }
 
+pub struct StepResult {
+    /// HatagenpeiController::step の実行ゲームログ
+    pub logs: Vec<String>,
+    /// ゲームが終了したかどうか
+    pub is_over: bool,
+}
+
 impl HatagenpeiController {
     pub fn new(redis_uri: &Option<String>, bot_name: &String) -> HatagenpeiController {
         let score_operator: Box<dyn ScoreOperation> = match redis_uri {
@@ -284,58 +284,82 @@ impl HatagenpeiController {
     }
 
     /// 2step旗源平の実行を行う（player -> bot）
-    pub fn step(&mut self, player_name: &str) -> Vec<String> {
-        let progress = self.score_operator.get_progress(player_name);
-
+    pub fn step(&mut self, player_name: &str) -> StepResult {
         // 現在の状態でゲームを行う
+        let progress = self.score_operator.get_progress(player_name);
         let mut game = Hatagenpei::new(progress.user, progress.bot, PlayerTurn::Player1);
-
-        let mut gamelog = vec![];
+        let mut logstr = vec![];
+        let mut is_over = false;
 
         // (i == 0) => user play, (i == 1) => bot play
         for i in 0..2 {
-            let mut res = game.next();
-            gamelog.append(&mut res);
+            // unwrap できない場合、予期しない状態になっている可能性があるので panic する
+            let game_log = game.next().unwrap();
 
-            match game.get_victory_or_defeat() {
-                Ok(VictoryOrDefeat::YetPlaying) => {
+            let turn_player_name = match game_log.player_turn {
+                PlayerTurn::Player1 => game_log.player1.name.clone(),
+                PlayerTurn::Player2 => game_log.player2.name.clone(),
+            };
+
+            logstr.push(format!("# {} の番", turn_player_name).to_string());
+            logstr.push("## サイコロの結果".to_string());
+
+            for cmd in &game_log.commands {
+                logstr.push(format!("- {}", cmd.explain.to_string()));
+            }
+
+            logstr.push("".to_string());
+            logstr.push("## 旗状況".to_string());
+
+            for player in [&(game_log.player1), &(game_log.player2)].iter() {
+                logstr.push(format!("- {}", player.name));
+                logstr.push(format!(
+                    "   - 自分の旗 【{}】",
+                    player.my_score.to_string()
+                ));
+                logstr.push(format!(
+                    "   - 取った旗 【{}】",
+                    player.got_score.to_string()
+                ));
+            }
+
+            logstr.push("".to_string());
+
+            match game_log.game_state {
+                GameState::YetPlaying => {
                     // ループ終了時
                     if i == 1 {
-                        let (p1, p2) = game.get_players();
                         // スコアの再登録
-                        self.score_operator.insert_progress(&Progress::new(p1, p2));
+                        self.score_operator
+                            .insert_progress(&Progress::new(&game_log.player1, &game_log.player2));
                     }
                 }
-                Ok(win_player) => {
+                win_player => {
                     let win_player_name = match win_player {
-                        VictoryOrDefeat::Player1Win => player_name.to_string(),
-                        VictoryOrDefeat::Player2Win => self.bot_name.clone(),
-                        VictoryOrDefeat::YetPlaying => panic!("unexpected!"),
+                        GameState::Player1Win => player_name.to_string(),
+                        GameState::Player2Win => self.bot_name.clone(),
+                        GameState::YetPlaying => panic!("unexpected!"),
                     };
 
-                    gamelog.push(format!("{} の勝ち", win_player_name));
-                    gamelog.push("".to_string());
+                    logstr.push(format!("{} の勝ち", win_player_name));
+                    logstr.push("".to_string());
 
                     // ゲームが終わったので、進行状態を削除する
                     self.score_operator.delete_progress(player_name);
 
                     // 勝敗を書く
-                    self.score_operator.update_result(
-                        player_name,
-                        win_player == VictoryOrDefeat::Player1Win,
-                    );
+                    self.score_operator
+                        .update_result(player_name, win_player == GameState::Player1Win);
 
+                    is_over = true;
                     break;
-                }
-                Err(err) => {
-                    // ここを通ったら異常なので panic する
-                    // redis の場合は key を消してしまったほうがいいかもしれない
-                    error!("error occured!, error = {:?}", err);
-                    panic!("");
                 }
             }
         }
-        return gamelog;
+        return StepResult {
+            logs: logstr,
+            is_over: is_over,
+        };
     }
 }
 
@@ -343,19 +367,20 @@ impl HatagenpeiController {
 mod tests {
     #[test]
     fn controller_tests() {
-        // // controller を動作させ、ちゃんと状態が保存されているか見る
-        // use crate::hatagenpei::controller::*;
+        // controller を動作させ、ちゃんと状態が保存されているか見る
+        use crate::hatagenpei::controller::*;
 
-        // let mut ins = HatagenpeiController::new(&None, &"hatagenpeikun".to_string());
+        let mut ins = HatagenpeiController::new(&None, &"hatagenpeikun".to_string());
+        loop {
+            let res = ins.step(&"rust".to_string());
+            for l in &res.logs {
+                println!("{:?}", l);
+            }
+            if res.is_over {
+                break;
+            }
+        }
 
-        // for _ in 0..2 {
-        //     let res = ins.step(&"rust".to_string());
-        //     for l in res {
-        //         println!("{:?}", l);
-        //     }
-        // }
-
-        // TODO:  ScoresInMap のテストを書く
-
+        // TODO: テストを書く。Hatagenpeicontroller::step が返すログ文字列が想定どおりになっているかを見るテストを書くことになるはず。
     }
 }

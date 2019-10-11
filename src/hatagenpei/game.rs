@@ -16,8 +16,22 @@ pub struct Score {
     pub matoi: bool,
 }
 
+// ゲームのログ情報
+pub struct GameLog {
+    /// 今回ゲームを実行したプレイヤー
+    pub player_turn: PlayerTurn,
+    /// 実行したコマンド
+    pub commands: Vec<HatagenpeiCommand>,
+    /// commands をすべて実行した後の、player1の情報
+    pub player1: Player,
+    /// commands をすべて実行した後の、player2の情報
+    pub player2: Player,
+    /// 現在のゲーム状況
+    pub game_state: GameState,
+}
+
 impl Score {
-    fn to_string(&self) -> String {
+    pub fn to_string(&self) -> String {
         let obata = self.score / 50;
         let chubata = (self.score % 50) / 10;
         let kobata = (self.score % 50) % 10;
@@ -48,14 +62,14 @@ impl Player {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum PlayerTurn {
     Player1,
     Player2,
 }
 
 #[derive(PartialEq)]
-pub enum VictoryOrDefeat {
+pub enum GameState {
     Player1Win,
     Player2Win,
     YetPlaying,
@@ -67,18 +81,13 @@ pub struct Hatagenpei {
     pub turn: PlayerTurn,
 }
 
-#[derive(Debug)]
-pub enum HatagenPeiError {
-    Unexpected,
-}
-
 #[derive(Clone)]
-struct HatagenpeiCommand {
-    dice1: u8,
-    dice2: u8,
-    point: i32,            // + なら もらう、- ならあげる
-    again: bool,           // true ならもういちどサイコロを
-    explain: &'static str, // 説明文
+pub struct HatagenpeiCommand {
+    pub dice1: u8,
+    pub dice2: u8,
+    pub point: i32,            // + なら もらう、- ならあげる
+    pub again: bool,           // true ならもういちどサイコロを
+    pub explain: &'static str, // 説明文
 }
 
 const HATAGENPEICOMMANDS: [HatagenpeiCommand; 21] = [
@@ -244,41 +253,35 @@ impl Hatagenpei {
     /// 1ターン進める。
     /// サイコロの振り直しが発生した場合、振り直しを行う。
     /// 戻り値で、実行ログを返す
-    /// TODO: 戻り値で返すものは、実行ログの文字列ではなく、実行結果を構造化したものにしたい
-    pub fn next(&mut self) -> Vec<String> {
-        let mut res = vec![];
+    pub fn next(&mut self) -> Option<GameLog> {
+        let mut commands = Vec::new();
+        let next_turn;
 
         {
-            let next_turn;
-            let turn_player_name;
-
             match self.turn {
                 PlayerTurn::Player1 => {
-                    turn_player_name = self.player1.name.clone();
                     next_turn = PlayerTurn::Player2;
                 }
                 PlayerTurn::Player2 => {
-                    turn_player_name = self.player2.name.clone();
                     next_turn = PlayerTurn::Player1;
                 }
             }
 
             // まだプレイ中でなければならない
-            match self.get_victory_or_defeat() {
-                Ok(VictoryOrDefeat::YetPlaying) => {}
+            match self.get_game_state() {
+                GameState::YetPlaying => {}
                 _ => {
-                    return res;
+                    return None;
                 }
             }
 
-            res.push(format!("# {} の番", turn_player_name).to_string());
-
-            res.push("## サイコロの結果".to_string());
             loop {
-                match self.get_victory_or_defeat() {
-                    Ok(VictoryOrDefeat::YetPlaying) => {
+                match self.get_game_state() {
+                    GameState::YetPlaying => {
                         // まだプレイ中の場合のみダイスを振る
                         let cmd = Self::diceroll();
+
+                        commands.push(cmd.clone());
 
                         // 旗を返すプレイヤーを決定
                         let (send_player, got_player) = if (cmd.point > 0) as i32
@@ -305,56 +308,38 @@ impl Hatagenpei {
                             got_player.got_score.score += v;
                         }
 
-                        res.push(format!("- {}", cmd.explain.to_string()));
-
                         // もう一度振れないなら終了
                         if !cmd.again {
                             break;
                         }
                     }
-                    Ok(_) => {
+                    _ => {
                         break;
-                    }
-                    Err(err) => {
-                        panic!("{:?}", err);
                     }
                 }
             }
-            self.turn = next_turn;
         }
 
-        res.push("".to_string());
-        res.push("## 旗状況".to_string());
+        let game_log = GameLog {
+            player1: self.player1.clone(),
+            player2: self.player2.clone(),
+            commands: commands,
+            player_turn: self.turn.clone(),
+            game_state: self.get_game_state(),
+        };
 
-        for player in [&self.player1, &self.player2].iter() {
-            res.push(format!("- {}", player.name));
-            res.push(format!(
-                "   - 自分の旗 【{}】",
-                player.my_score.to_string()
-            ));
-            res.push(format!(
-                "   - 取った旗 【{}】",
-                player.got_score.to_string()
-            ));
-        }
+        self.turn = next_turn;
 
-        res.push("".to_string());
-
-        return res;
+        return Some(game_log);
     }
 
-    /// (player1, player2) というタプルで、現在の Player ごとのスコアを取得する。
-    pub fn get_players(&self) -> (&Player, &Player) {
-        return (&self.player1, &self.player2);
-    }
-
-    pub fn get_victory_or_defeat(self: &Self) -> Result<VictoryOrDefeat, HatagenPeiError> {
+    fn get_game_state(self: &Self) -> GameState {
         if self.player1.got_score.matoi {
-            return Ok(VictoryOrDefeat::Player1Win);
+            return GameState::Player1Win;
         } else if self.player2.got_score.matoi {
-            return Ok(VictoryOrDefeat::Player2Win);
+            return GameState::Player2Win;
         } else {
-            return Ok(VictoryOrDefeat::YetPlaying);
+            return GameState::YetPlaying;
         }
     }
 
@@ -382,66 +367,6 @@ impl Hatagenpei {
 mod tests {
     #[test]
     fn hatagenpei_tests() {
-        // TODO : print せずに、機械的に比較できるテストを実装したい
-
-        use crate::hatagenpei::game::*;
-
-        let first_player_name = "first";
-        let second_player_name = "second";
-        let initial_score = 30;
-
-        let p1 = Player::new(
-            first_player_name.to_string(),
-            Score {
-                score: initial_score,
-                matoi: true,
-            },
-            Score {
-                score: 0,
-                matoi: false,
-            },
-        );
-        let p2 = Player::new(
-            second_player_name.to_string(),
-            Score {
-                score: initial_score,
-                matoi: true,
-            },
-            Score {
-                score: 0,
-                matoi: false,
-            },
-        );
-
-        let mut hg = Hatagenpei::new(p1, p2, PlayerTurn::Player1);
-
-        let mut call_next_count = 0;
-
-        loop {
-            let v = hg.next();
-            call_next_count += 1;
-
-            for i in v {
-                println!("{:?}", i);
-            }
-
-            println!("");
-
-            match hg.get_victory_or_defeat() {
-                Ok(VictoryOrDefeat::YetPlaying) => {}
-                Ok(VictoryOrDefeat::Player1Win) => {
-                    println!("{} win!!", first_player_name);
-                    break;
-                }
-                Ok(VictoryOrDefeat::Player2Win) => {
-                    println!("{} win!!", second_player_name);
-                    break;
-                }
-                Err(err) => {
-                    println!("{:?}", err);
-                }
-            }
-        }
-        println!("call_next_count = {}", call_next_count);
+        // TODO: テストを書く。乱数のシードを Game::new で指定できるようにしないと、テストができないと思われるので、指定できるようにする。
     }
 }
