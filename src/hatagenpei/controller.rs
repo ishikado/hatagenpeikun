@@ -6,10 +6,8 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 
-use log::error;
 use redis::*;
 use serde::{Deserialize, Serialize};
-use serde_json::Result;
 
 use std::collections::BTreeMap;
 

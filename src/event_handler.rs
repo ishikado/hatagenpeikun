@@ -145,7 +145,7 @@ impl MyHandler {
             (
                 "echo",
                 "echo <arg> - <arg> をそのまま返す",
-                Box::new(move |handler, arg| {
+                Box::new(move |_, arg| {
                     on_echo(cli, chid, arg)?;
                     return Ok(());
                 }),
@@ -153,7 +153,7 @@ impl MyHandler {
             (
                 "nowtime",
                 "nowtime - 現在時刻を取得する",
-                Box::new(move |handler, _| {
+                Box::new(move |_, _| {
                     on_nowtime(cli, chid)?;
                     return Ok(());
                 }),

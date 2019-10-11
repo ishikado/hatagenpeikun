@@ -3,7 +3,6 @@
 //!
 
 extern crate rand;
-use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::mem;
 use std::string::ToString;
