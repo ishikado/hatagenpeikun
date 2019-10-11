@@ -3,11 +3,10 @@
 //!
 
 extern crate rand;
+use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use std::mem;
 use std::string::ToString;
-use rand::{SeedableRng, Rng};
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Score {
@@ -80,7 +79,7 @@ pub struct Hatagenpei {
     player1: Player,
     player2: Player,
     turn: PlayerTurn,
-    rng: rand_xoshiro::Xoshiro256StarStar
+    rng: rand_xoshiro::Xoshiro256StarStar,
 }
 
 #[derive(Debug, Clone)]
@@ -244,12 +243,17 @@ const HATAGENPEICOMMANDS: [HatagenpeiCommand; 21] = [
 
 impl Hatagenpei {
     /// Hatagenpei インスタンスを作成する
-    pub fn new(player1: Player, player2: Player, first_player: PlayerTurn, seed : u64) -> Hatagenpei {
+    pub fn new(
+        player1: Player,
+        player2: Player,
+        first_player: PlayerTurn,
+        seed: u64,
+    ) -> Hatagenpei {
         return Hatagenpei {
             player1: player1,
             player2: player2,
             turn: first_player,
-            rng: rand_xoshiro::Xoshiro256StarStar::seed_from_u64(seed)
+            rng: rand_xoshiro::Xoshiro256StarStar::seed_from_u64(seed),
         };
     }
 
@@ -347,7 +351,7 @@ impl Hatagenpei {
     }
 
     /// サイコロを振り、行うコマンドを返す
-    fn diceroll(rng : &mut rand_xoshiro::Xoshiro256StarStar) -> HatagenpeiCommand {
+    fn diceroll(rng: &mut rand_xoshiro::Xoshiro256StarStar) -> HatagenpeiCommand {
         // 乱数でサイコロの目を決める
         let mut d1 = (rng.gen::<u8>() % 6) + 1;
         let mut d2 = (rng.gen::<u8>() % 6) + 1;
@@ -370,15 +374,33 @@ impl Hatagenpei {
 mod tests {
     #[test]
     fn hatagenpei_tests() {
-        // TODO: テストを書く。乱数のシードを Game::new で指定できるようにしないと、テストができないと思われるので、指定できるようにする。
         use crate::hatagenpei::game::*;
 
-
         let mut game = Hatagenpei::new(
-            Player::new("alice".to_string(), Score{score: 10, matoi: true}, Score{score: 0, matoi: false}),
-            Player::new("bob".to_string(),   Score{score: 10, matoi: true}, Score{score: 0, matoi: false}),
+            Player::new(
+                "alice".to_string(),
+                Score {
+                    score: 10,
+                    matoi: true,
+                },
+                Score {
+                    score: 0,
+                    matoi: false,
+                },
+            ),
+            Player::new(
+                "bob".to_string(),
+                Score {
+                    score: 10,
+                    matoi: true,
+                },
+                Score {
+                    score: 0,
+                    matoi: false,
+                },
+            ),
             PlayerTurn::Player1,
-            123
+            123,
         );
 
         // TODO: 2回で終わるので、2回分の GameLog の中身を assert で比較する
@@ -386,6 +408,5 @@ mod tests {
             let game_log = game.next().unwrap();
             println!("{:?}", game_log);
         }
-        
     }
 }
