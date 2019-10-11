@@ -283,9 +283,11 @@ impl HatagenpeiController {
 
     /// 2step旗源平の実行を行う（player -> bot）
     pub fn step(&mut self, player_name: &str) -> StepResult {
+        let seed = rand::random::<u64>();
         // 現在の状態でゲームを行う
         let progress = self.score_operator.get_progress(player_name);
-        let mut game = Hatagenpei::new(progress.user, progress.bot, PlayerTurn::Player1);
+        let mut game = Hatagenpei::new(progress.user, progress.bot, PlayerTurn::Player1, seed);
+        // game.next() の戻り値から、ゲームログ文字列を構築する
         let mut logstr = vec![];
         let mut is_over = false;
 

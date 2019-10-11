@@ -6,6 +6,8 @@ extern crate rand;
 use serde::{Deserialize, Serialize};
 use std::mem;
 use std::string::ToString;
+use rand::{SeedableRng, Rng};
+
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Score {
@@ -75,9 +77,10 @@ pub enum GameState {
 }
 
 pub struct Hatagenpei {
-    pub player1: Player,
-    pub player2: Player,
-    pub turn: PlayerTurn,
+    player1: Player,
+    player2: Player,
+    turn: PlayerTurn,
+    rng: rand_xoshiro::Xoshiro256StarStar
 }
 
 #[derive(Clone)]
@@ -241,11 +244,12 @@ const HATAGENPEICOMMANDS: [HatagenpeiCommand; 21] = [
 
 impl Hatagenpei {
     /// Hatagenpei インスタンスを作成する
-    pub fn new(player1: Player, player2: Player, first_player: PlayerTurn) -> Hatagenpei {
+    pub fn new(player1: Player, player2: Player, first_player: PlayerTurn, seed : u64) -> Hatagenpei {
         return Hatagenpei {
             player1: player1,
             player2: player2,
             turn: first_player,
+            rng: rand_xoshiro::Xoshiro256StarStar::seed_from_u64(seed)
         };
     }
 
@@ -278,7 +282,7 @@ impl Hatagenpei {
                 match self.get_game_state() {
                     GameState::YetPlaying => {
                         // まだプレイ中の場合のみダイスを振る
-                        let cmd = Self::diceroll();
+                        let cmd = Self::diceroll(&mut self.rng);
 
                         commands.push(cmd.clone());
 
@@ -343,10 +347,10 @@ impl Hatagenpei {
     }
 
     /// サイコロを振り、行うコマンドを返す
-    fn diceroll() -> HatagenpeiCommand {
+    fn diceroll(rng : &mut rand_xoshiro::Xoshiro256StarStar) -> HatagenpeiCommand {
         // 乱数でサイコロの目を決める
-        let mut d1 = (rand::random::<u8>() % 6) + 1;
-        let mut d2 = (rand::random::<u8>() % 6) + 1;
+        let mut d1 = (rng.gen::<u8>() % 6) + 1;
+        let mut d2 = (rng.gen::<u8>() % 6) + 1;
         if d1 > d2 {
             mem::swap(&mut d1, &mut d2);
         }
@@ -367,5 +371,11 @@ mod tests {
     #[test]
     fn hatagenpei_tests() {
         // TODO: テストを書く。乱数のシードを Game::new で指定できるようにしないと、テストができないと思われるので、指定できるようにする。
+        // use rand::{Rng, SeedableRng};
+        // let mut rng : rand_xoshiro::Xoshiro256StarStar = rand_xoshiro::Xoshiro256StarStar::seed_from_u64(123);
+        // let a = rng.gen::<u8>();
+        // println!("{}", a);
+        // println!("{}", rand::random::<u8>());
+
     }
 }
