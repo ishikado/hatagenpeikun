@@ -9,7 +9,7 @@ use std::string::ToString;
 use rand::{SeedableRng, Rng};
 
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Score {
     /// 現在所持している旗の本数
     pub score: i32,
@@ -18,6 +18,7 @@ pub struct Score {
 }
 
 // ゲームのログ情報
+#[derive(Debug)]
 pub struct GameLog {
     /// 今回ゲームを実行したプレイヤー
     pub player_turn: PlayerTurn,
@@ -36,8 +37,7 @@ impl Score {
         let obata = self.score / 50;
         let chubata = (self.score % 50) / 10;
         let kobata = (self.score % 50) % 10;
-        let m = if self.matoi { 1 } else { 0 };
-
+        let m = self.matoi as i32;
         return format!(
             "まとい : {} 本、 大旗 : {} 本、中旗 : {} 本、小旗 : {} 本",
             m, obata, chubata, kobata
@@ -46,7 +46,7 @@ impl Score {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Player {
     pub my_score: Score,
     pub got_score: Score,
@@ -63,13 +63,13 @@ impl Player {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PlayerTurn {
     Player1,
     Player2,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum GameState {
     Player1Win,
     Player2Win,
@@ -83,7 +83,7 @@ pub struct Hatagenpei {
     rng: rand_xoshiro::Xoshiro256StarStar
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct HatagenpeiCommand {
     pub dice1: u8,
     pub dice2: u8,
@@ -371,11 +371,21 @@ mod tests {
     #[test]
     fn hatagenpei_tests() {
         // TODO: テストを書く。乱数のシードを Game::new で指定できるようにしないと、テストができないと思われるので、指定できるようにする。
-        // use rand::{Rng, SeedableRng};
-        // let mut rng : rand_xoshiro::Xoshiro256StarStar = rand_xoshiro::Xoshiro256StarStar::seed_from_u64(123);
-        // let a = rng.gen::<u8>();
-        // println!("{}", a);
-        // println!("{}", rand::random::<u8>());
+        use crate::hatagenpei::game::*;
 
+
+        let mut game = Hatagenpei::new(
+            Player::new("alice".to_string(), Score{score: 10, matoi: true}, Score{score: 0, matoi: false}),
+            Player::new("bob".to_string(),   Score{score: 10, matoi: true}, Score{score: 0, matoi: false}),
+            PlayerTurn::Player1,
+            123
+        );
+
+        // TODO: 2回で終わるので、2回分の GameLog の中身を assert で比較する
+        for _ in 0..1 {
+            let game_log = game.next().unwrap();
+            println!("{:?}", game_log);
+        }
+        
     }
 }
