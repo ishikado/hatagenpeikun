@@ -18,17 +18,19 @@ const REDIS_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
 const REDIS_HATAGENPEI_RESULT_KEY: &str = "hatagenpei_results";
 const HATAGENPEI_INIT_SCORE: i32 = 29; // 小旗が両替できるように10x(x>=0) + 9 本持ちで開始すること
 
-#[derive(Clone, Serialize, Deserialize)]
-struct WinLose {
-    win: i32,
-    lose: i32,
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct WinLose {
+    pub name: String,
+    pub win: i32,
+    pub lose: i32,
 }
 
 impl WinLose {
-    fn new(win: i32, lose: i32) -> WinLose {
+    fn new(win: i32, lose: i32, name: &str) -> WinLose {
         return WinLose {
             win: win,
             lose: lose,
+            name: name.to_string()
         };
     }
 }
@@ -61,9 +63,10 @@ trait ScoreOperation {
     /// player_name で指定されたプレイヤーの情報を削除する。
     fn delete_progress(&mut self, player_name: &str) -> bool;
     /// player_name で指定されたプレイヤーの勝敗を登録する。
+    /// TODO: update_result の result では何の結果かわかりにくいので、名前を修正する
     fn update_result(&mut self, player_name: &str, is_player_win: bool) -> bool;
-    // TODO get_result で、指定されたプレイヤーの勝敗を取得できるようにしたい
-    // fn get_result(&mut self, player_name : &str) -> GameResult ;
+    /// 過去の旗源平の勝敗記録を表示する
+    fn get_win_loses(&self) -> Vec<WinLose>;
 }
 
 struct ScoresInMap {
@@ -143,7 +146,7 @@ impl ScoreOperation for ScoresInMap {
     fn update_result(&mut self, player_name: &str, is_player_win: bool) -> bool {
         let mut win_lose = match self.result_map.get(player_name) {
             Some(win_lose) => win_lose.clone(),
-            None => WinLose::new(0, 0),
+            None => WinLose::new(0, 0, player_name),
         };
 
         if is_player_win {
@@ -155,6 +158,13 @@ impl ScoreOperation for ScoresInMap {
         self.result_map.insert(player_name.to_string(), win_lose);
 
         return true;
+    }
+    fn get_win_loses(&self) -> Vec<WinLose> {
+        let mut res = vec![];
+        for (_, win_lose) in self.result_map.iter() {
+            res.push(win_lose.clone());
+        }
+        return res;
     }
 }
 
@@ -242,7 +252,7 @@ impl ScoreOperation for ScoresInRedis {
         let mut win_lose = match get_result {
             Ok(json) => serde_json::from_str(&json[..]).unwrap(),
             // 取り出せなかった場合、insert しておく
-            Err(_) => WinLose::new(0, 0),
+            Err(_) => WinLose::new(0, 0, player_name),
         };
 
         if is_player_win {
@@ -258,6 +268,27 @@ impl ScoreOperation for ScoresInRedis {
             .unwrap();
 
         return true;
+    }
+
+    fn get_win_loses(&self) -> Vec<WinLose> {
+        let mut res = vec![];
+        let client = Client::open(&self.redis_uri[..]).unwrap();
+        let mut con = client.get_connection().unwrap();
+
+        let btreemap_result : RedisResult<BTreeMap<String, String>> = con.hgetall(REDIS_HATAGENPEI_RESULT_KEY);
+
+        match btreemap_result {
+            Ok(win_lose_map) => {
+                for(_, jsonstr) in win_lose_map.iter() {
+                    let win_lose: WinLose = serde_json::from_str(jsonstr).unwrap();
+                    res.push(win_lose);
+                }
+            }
+            Err(_) => {
+                // key が取り出せない場合は、何もしない
+            }
+        }
+        return res;
     }
 }
 
@@ -281,6 +312,11 @@ impl HatagenpeiController {
         };
     }
 
+    /// 過去の勝敗を取得
+    pub fn get_win_loses(&self) -> Vec<WinLose> {
+        return self.score_operator.get_win_loses().clone();
+    }
+    
     /// 2step旗源平の実行を行う（player -> bot）
     pub fn step(&mut self, player_name: &str) -> StepResult {
         let seed = rand::random::<u64>();

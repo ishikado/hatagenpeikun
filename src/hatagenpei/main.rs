@@ -7,13 +7,18 @@ fn main() {
     use hatagenpeikun::hatagenpei::controller::*;
 
     let mut ins = HatagenpeiController::new(&None, &"hatagenpeikun".to_string());
-    loop {
-        let res = ins.step(&"rust".to_string());
-        for l in &res.logs {
-            println!("{:?}", l);
-        }
-        if res.is_over {
-            break;
+    for _ in 0..3{
+        loop {
+            let res = ins.step(&"rust".to_string());
+            for l in &res.logs {
+                println!("{:?}", l);
+            }
+            if res.is_over {
+                break;
+            }
         }
     }
+
+    println!("{:?}", ins.get_win_loses());
+
 }
