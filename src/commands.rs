@@ -38,6 +38,31 @@ pub fn on_hatagenpei(
     return Ok(());
 }
 
+pub fn on_hatagenpei_winloses(
+    cli: &RtmClient,
+    controller: &mut Option<HatagenpeiController>,
+    _message_user_name: &String,
+    chid: &String,
+) -> Result<(), failure::Error> {
+    info!("called on_hatagenpei_winloses");
+    match controller {
+        Some(controller) => {
+            let mut s = "```".to_string();
+            s.push_str("# 勝敗\n");
+            for win_lose in controller.get_win_loses() {
+                s.push_str(&format!("- {} 【{}勝 {}敗】\n", win_lose.name, win_lose.win, win_lose.lose).to_string());
+            }
+            s.push_str("```");
+            let _ = cli.sender().send_message(chid, &s);
+        }
+        None => {
+            // do nothing
+        }
+    }
+
+    return Ok(());
+}
+
 // ﾌﾟﾙﾙﾙ に反応する
 pub fn on_purururu(cli: &RtmClient, chid: &String, text: &String) -> Result<(), failure::Error> {
     info!("called on_purururu, text = {}", text);

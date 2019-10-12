@@ -144,7 +144,7 @@ impl MyHandler {
         )> = vec![
             (
                 "echo",
-                "echo <arg> - <arg> をそのまま返す",
+                "echo <arg> - <arg> を返す",
                 Box::new(move |_, arg| {
                     on_echo(cli, chid, arg)?;
                     return Ok(());
@@ -160,9 +160,22 @@ impl MyHandler {
             ),
             (
                 "旗源平",
-                "旗源平 - 旗源平で遊びます",
+                "旗源平 - 旗源平で遊ぶ",
                 Box::new(move |handler, _| {
                     on_hatagenpei(
+                        cli,
+                        &mut handler.hatagenpei_controller,
+                        message_user_name,
+                        chid,
+                    )?;
+                    return Ok(());
+                }),
+            ),
+            (
+                "勝敗",
+                "勝敗 - 旗源平の勝敗を表示する",
+                Box::new(move |handler, _| {
+                    on_hatagenpei_winloses(
                         cli,
                         &mut handler.hatagenpei_controller,
                         message_user_name,
