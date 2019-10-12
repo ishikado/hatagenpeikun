@@ -50,7 +50,19 @@ pub fn on_hatagenpei_winloses(
             let mut s = "```".to_string();
             s.push_str("# 勝敗\n");
             for win_lose in controller.get_win_loses() {
-                s.push_str(&format!("- {} 【{}勝 {}敗】\n", win_lose.name, win_lose.win, win_lose.lose).to_string());
+                let escaped_name;
+                if win_lose.name.len() > 1 {
+                    escaped_name = format!("{}.{}", &win_lose.name[0..1], &win_lose.name[1..]);
+                } else {
+                    escaped_name = win_lose.name.clone();
+                }
+                s.push_str(
+                    &format!(
+                        "- {} 【{}勝 {}敗】\n",
+                        escaped_name, win_lose.win, win_lose.lose
+                    )
+                    .to_string(),
+                );
             }
             s.push_str("```");
             let _ = cli.sender().send_message(chid, &s);

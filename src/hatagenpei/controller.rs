@@ -30,7 +30,7 @@ impl WinLose {
         return WinLose {
             win: win,
             lose: lose,
-            name: name.to_string()
+            name: name.to_string(),
         };
     }
 }
@@ -274,11 +274,12 @@ impl ScoreOperation for ScoresInRedis {
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
 
-        let btreemap_result : RedisResult<BTreeMap<String, String>> = con.hgetall(REDIS_HATAGENPEI_WINLOSES_KEY);
+        let btreemap_result: RedisResult<BTreeMap<String, String>> =
+            con.hgetall(REDIS_HATAGENPEI_WINLOSES_KEY);
 
         match btreemap_result {
             Ok(win_lose_map) => {
-                for(_, jsonstr) in win_lose_map.iter() {
+                for (_, jsonstr) in win_lose_map.iter() {
                     let win_lose: WinLose = serde_json::from_str(jsonstr).unwrap();
                     res.push(win_lose);
                 }
@@ -315,7 +316,7 @@ impl HatagenpeiController {
     pub fn get_win_loses(&self) -> Vec<WinLose> {
         return self.score_operator.get_win_loses().clone();
     }
-    
+
     /// 2step旗源平の実行を行う（player -> bot）
     pub fn step(&mut self, player_name: &str) -> StepResult {
         let seed = rand::random::<u64>();
