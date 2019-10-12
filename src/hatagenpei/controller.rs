@@ -15,7 +15,7 @@ use super::game::*;
 
 // TODO: このあたりの設定は https://docs.rs/config/0.9.3/config/ を使って、Settings.toml から指定できるようにしたい
 const REDIS_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
-const REDIS_HATAGENPEI_RESULT_KEY: &str = "hatagenpei_results";
+const REDIS_HATAGENPEI_WINLOSES_KEY: &str = "hatagenpei_winloses";
 const HATAGENPEI_INIT_SCORE: i32 = 29; // 小旗が両替できるように10x(x>=0) + 9 本持ちで開始すること
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -63,15 +63,14 @@ trait ScoreOperation {
     /// player_name で指定されたプレイヤーの情報を削除する。
     fn delete_progress(&mut self, player_name: &str) -> bool;
     /// player_name で指定されたプレイヤーの勝敗を登録する。
-    /// TODO: update_result の result では何の結果かわかりにくいので、名前を修正する
-    fn update_result(&mut self, player_name: &str, is_player_win: bool) -> bool;
+    fn update_winloses(&mut self, player_name: &str, is_player_win: bool) -> bool;
     /// 過去の旗源平の勝敗記録を表示する
     fn get_win_loses(&self) -> Vec<WinLose>;
 }
 
 struct ScoresInMap {
     score_map: BTreeMap<String, Progress>,
-    result_map: BTreeMap<String, WinLose>,
+    winlose_map: BTreeMap<String, WinLose>,
     bot_name: String,
 }
 
@@ -84,7 +83,7 @@ impl ScoresInMap {
     pub fn new(bot_name: String) -> ScoresInMap {
         return ScoresInMap {
             score_map: BTreeMap::new(),
-            result_map: BTreeMap::new(),
+            winlose_map: BTreeMap::new(),
             bot_name: bot_name,
         };
     }
@@ -143,8 +142,8 @@ impl ScoreOperation for ScoresInMap {
         self.score_map.remove(player_name);
         return true;
     }
-    fn update_result(&mut self, player_name: &str, is_player_win: bool) -> bool {
-        let mut win_lose = match self.result_map.get(player_name) {
+    fn update_winloses(&mut self, player_name: &str, is_player_win: bool) -> bool {
+        let mut win_lose = match self.winlose_map.get(player_name) {
             Some(win_lose) => win_lose.clone(),
             None => WinLose::new(0, 0, player_name),
         };
@@ -155,13 +154,13 @@ impl ScoreOperation for ScoresInMap {
             win_lose.lose += 1;
         }
 
-        self.result_map.insert(player_name.to_string(), win_lose);
+        self.winlose_map.insert(player_name.to_string(), win_lose);
 
         return true;
     }
     fn get_win_loses(&self) -> Vec<WinLose> {
         let mut res = vec![];
-        for (_, win_lose) in self.result_map.iter() {
+        for (_, win_lose) in self.winlose_map.iter() {
             res.push(win_lose.clone());
         }
         return res;
@@ -242,12 +241,12 @@ impl ScoreOperation for ScoresInRedis {
             .unwrap();
         return true;
     }
-    fn update_result(&mut self, player_name: &str, is_player_win: bool) -> bool {
+    fn update_winloses(&mut self, player_name: &str, is_player_win: bool) -> bool {
         // まずスコアテーブルを取り出し、値を確認する
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
 
-        let get_result: RedisResult<String> = con.hget(REDIS_HATAGENPEI_RESULT_KEY, player_name);
+        let get_result: RedisResult<String> = con.hget(REDIS_HATAGENPEI_WINLOSES_KEY, player_name);
 
         let mut win_lose = match get_result {
             Ok(json) => serde_json::from_str(&json[..]).unwrap(),
@@ -264,7 +263,7 @@ impl ScoreOperation for ScoresInRedis {
         // 勝敗テーブルに勝敗を書き込み
         let s = serde_json::to_string(&win_lose).unwrap();
         let _: () = con
-            .hset(REDIS_HATAGENPEI_RESULT_KEY, player_name, s)
+            .hset(REDIS_HATAGENPEI_WINLOSES_KEY, player_name, s)
             .unwrap();
 
         return true;
@@ -275,7 +274,7 @@ impl ScoreOperation for ScoresInRedis {
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
 
-        let btreemap_result : RedisResult<BTreeMap<String, String>> = con.hgetall(REDIS_HATAGENPEI_RESULT_KEY);
+        let btreemap_result : RedisResult<BTreeMap<String, String>> = con.hgetall(REDIS_HATAGENPEI_WINLOSES_KEY);
 
         match btreemap_result {
             Ok(win_lose_map) => {
@@ -385,7 +384,7 @@ impl HatagenpeiController {
 
                     // 勝敗を書く
                     self.score_operator
-                        .update_result(player_name, win_player == GameState::Player1Win);
+                        .update_winloses(player_name, win_player == GameState::Player1Win);
 
                     is_over = true;
                     break;
