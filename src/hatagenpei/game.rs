@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::mem;
 use std::string::ToString;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Score {
     /// 現在所持している旗の本数
     pub score: i32,
@@ -45,7 +45,7 @@ impl Score {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Player {
     pub my_score: Score,
     pub got_score: Score,
@@ -82,7 +82,7 @@ pub struct Hatagenpei {
     rng: rand_xoshiro::Xoshiro256StarStar,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct HatagenpeiCommand {
     pub dice1: u8,
     pub dice2: u8,
@@ -403,10 +403,85 @@ mod tests {
             123,
         );
 
-        // TODO: 2回で終わるので、2回分の GameLog の中身を assert で比較する
-        for _ in 0..1 {
+        {
             let game_log = game.next().unwrap();
-            println!("{:?}", game_log);
+            assert_eq!(game_log.player_turn, PlayerTurn::Player1);
+            assert_eq!(game_log.game_state, GameState::YetPlaying);
+            assert_eq!(
+                game_log.player1,
+                Player {
+                    my_score: Score {
+                        score: 10,
+                        matoi: true
+                    },
+                    got_score: Score {
+                        score: 0,
+                        matoi: false
+                    },
+                    name: "alice".to_string()
+                }
+            );
+            assert_eq!(
+                game_log.player2,
+                Player {
+                    my_score: Score {
+                        score: 10,
+                        matoi: true
+                    },
+                    got_score: Score {
+                        score: 0,
+                        matoi: false
+                    },
+                    name: "bob".to_string()
+                }
+            );
+            assert_eq!(
+                game_log.commands,
+                vec![HatagenpeiCommand {
+                    dice1: 4,
+                    dice2: 5,
+                    point: 0,
+                    again: false,
+                    explain: "４  ５\tごっしりはなかみ\u{3000}\u{3000}旗の移動なし"
+                }]
+            );
+        }
+
+        {
+            let game_log = game.next().unwrap();
+            assert_eq!(game_log.player_turn, PlayerTurn::Player2);
+            assert_eq!(game_log.game_state, GameState::Player2Win);
+            assert_eq!(
+                game_log.player1,
+                Player {
+                    my_score: Score {
+                        score: 0,
+                        matoi: false
+                    },
+                    got_score: Score {
+                        score: 0,
+                        matoi: false
+                    },
+                    name: "alice".to_string()
+                }
+            );
+            assert_eq!(
+                game_log.player2,
+                Player {
+                    my_score: Score {
+                        score: 10,
+                        matoi: true
+                    },
+                    got_score: Score {
+                        score: 10,
+                        matoi: true
+                    },
+                    name: "bob".to_string()
+                }
+            );
+
+            assert_eq!(game_log.commands, vec![HatagenpeiCommand { dice1: 1, dice2: 6, point: 10, again: true, explain: "１  ６\tちんろく\t\u{3000}\u{3000}\u{3000}\u{3000}中旗１本もらう\u{3000}さいころを続けて振れる" },
+                                               HatagenpeiCommand { dice1: 1, dice2: 5, point: 10, again: true, explain: "１  ５\tうめがいち\u{3000}\u{3000}\t\u{3000}\u{3000}中旗１本もらう\u{3000}さいころを続けて振れる" }]);
         }
     }
 }
