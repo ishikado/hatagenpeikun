@@ -50,12 +50,7 @@ pub fn on_hatagenpei_winloses(
             let mut s = "```".to_string();
             s.push_str("# 勝敗\n");
             for win_lose in controller.get_win_loses() {
-                let escaped_name;
-                if win_lose.name.len() > 1 {
-                    escaped_name = format!("{}.{}", &win_lose.name[0..1], &win_lose.name[1..]);
-                } else {
-                    escaped_name = win_lose.name.clone();
-                }
+                let escaped_name = escape_string(&win_lose.name);
                 s.push_str(
                     &format!(
                         "- {} 【{}勝 {}敗】\n",
@@ -127,6 +122,22 @@ fn get_nowtime_string() -> String {
     let tokyo = local.with_timezone(&Tokyo);
     return tokyo.to_string();
 }
+
+fn escape_string(s : &str) -> String {
+    let (_, res) = s.chars().into_iter().fold((0, "".to_string()), |(counter, ss), ch| {
+        let mut ss2 = ss;
+        ss2.push(ch);
+        if counter == 0 {
+            ss2.push('.');
+            (counter + 1, ss2)
+        }
+        else{
+            (counter + 1, ss2)
+        }
+    });
+    return res;
+}
+
 
 /*****************
 tests
