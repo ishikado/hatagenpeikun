@@ -17,8 +17,6 @@ pub fn on_hatagenpei(
     chid: &String,
 ) -> Result<(), failure::Error> {
     info!("called on_hatagenpei");
-    use crate::hatagenpei::controller::*;
-
     match controller {
         Some(controller) => {
             let res = controller.step(message_user_name);
