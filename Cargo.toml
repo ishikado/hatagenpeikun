@@ -31,5 +31,5 @@ name = "hatagenpei_sample"
 path = "src/hatagenpei/main.rs"
 
 [[bin]]
-name = "main"
+name = "hatagenpeikun"
 path = "src/main.rs"
