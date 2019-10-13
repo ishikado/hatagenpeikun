@@ -20,13 +20,8 @@ pub fn on_hatagenpei(
     match controller {
         Some(controller) => {
             let res = controller.step(message_user_name);
-            let mut s = "```".to_string();
-            for l in &res.logs {
-                s.push_str(&l);
-                s.push('\n');
-            }
-            s.push_str("```");
-            let _ = cli.sender().send_message(chid, &s);
+            let joined_logs = ["```", &res.logs.join("\n"), "```"].concat();
+            let _ = cli.sender().send_message(chid, &joined_logs);
         }
         None => {
             // do nothing
@@ -101,11 +96,8 @@ pub fn on_nowtime(cli: &RtmClient, chid: &String) -> Result<(), failure::Error> 
 
 pub fn on_help(cli: &RtmClient, chid: &String, docs: Vec<&str>) -> Result<(), failure::Error> {
     info!("called on_help");
-    // TODO: 文字列の連結をもう少し洗練された方法で行いたい
-    let docstr = docs
-        .iter()
-        .fold("".to_string(), |res, doc| format!("{}\n{}", res, doc));
-    let _ = cli.sender().send_message(chid, &docstr);
+    let anotated = ["```", &docs.join("\n"),  "```"].concat();
+    let _ = cli.sender().send_message(chid, &anotated);
     return Ok(());
 }
 
