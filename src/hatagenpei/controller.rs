@@ -18,6 +18,11 @@ const REDIS_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
 const REDIS_HATAGENPEI_WINLOSES_KEY: &str = "hatagenpei_winloses";
 const HATAGENPEI_INIT_SCORE: i32 = 29; // 小旗が両替できるように10x(x>=0) + 9 本持ちで開始すること
 
+pub enum DataStore {
+    Redis { uri: String },
+    OnMemory,
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct WinLose {
     pub name: String,
@@ -300,10 +305,10 @@ pub struct StepResult {
 }
 
 impl HatagenpeiController {
-    pub fn new(redis_uri: &Option<String>, bot_name: &String) -> HatagenpeiController {
-        let score_operator: Box<dyn ScoreOperation> = match redis_uri {
-            None => Box::new(ScoresInMap::new(bot_name.clone())),
-            Some(uri) => Box::new(ScoresInRedis::new(uri, bot_name.clone())),
+    pub fn new(data_store: &DataStore, bot_name: &String) -> HatagenpeiController {
+        let score_operator: Box<dyn ScoreOperation> = match data_store {
+            DataStore::Redis { uri: uri } => Box::new(ScoresInRedis::new(uri, bot_name.clone())),
+            OnMemory => Box::new(ScoresInMap::new(bot_name.clone())),
         };
 
         return HatagenpeiController {

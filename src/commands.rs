@@ -96,7 +96,7 @@ pub fn on_nowtime(cli: &RtmClient, chid: &String) -> Result<(), failure::Error> 
 
 pub fn on_help(cli: &RtmClient, chid: &String, docs: Vec<&str>) -> Result<(), failure::Error> {
     info!("called on_help");
-    let anotated = ["```", &docs.join("\n"),  "```"].concat();
+    let anotated = ["```", &docs.join("\n"), "```"].concat();
     let _ = cli.sender().send_message(chid, &anotated);
     return Ok(());
 }
@@ -113,20 +113,21 @@ fn get_nowtime_string() -> String {
     return tokyo.to_string();
 }
 
-fn escape_name(name : &str) -> String {
-    let (_, escaped_name) = name.chars().into_iter().fold((0, "".to_string()), |(counter, mut tmp_name), ch| {
-        tmp_name.push(ch);
-        if counter == 0 {
-            tmp_name.push('.');
-            (counter + 1, tmp_name)
-        }
-        else{
-            (counter + 1, tmp_name)
-        }
-    });
+fn escape_name(name: &str) -> String {
+    let (_, escaped_name) =
+        name.chars()
+            .into_iter()
+            .fold((0, "".to_string()), |(counter, mut tmp_name), ch| {
+                tmp_name.push(ch);
+                if counter == 0 {
+                    tmp_name.push('.');
+                    (counter + 1, tmp_name)
+                } else {
+                    (counter + 1, tmp_name)
+                }
+            });
     return escaped_name;
 }
-
 
 /*****************
 tests

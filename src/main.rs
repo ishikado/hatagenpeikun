@@ -23,6 +23,7 @@
 
 use getopts::Options;
 use hatagenpeikun::event_handler::MyHandler;
+use hatagenpeikun::hatagenpei::controller::DataStore;
 use log::error;
 use slack::RtmClient;
 use std::env;
@@ -42,6 +43,7 @@ fn main() {
         "set loglevel",
         "debug | info | warn | error",
     );
+
     opts.optopt("r", "redis_uri", "set redis uri", "");
     opts.optflag("h", "help", "print this help menu");
 
@@ -61,8 +63,6 @@ fn main() {
         _ => "info".to_string(), // default log level
     };
 
-    let maybe_redis_uri = matches.opt_str("r");
-
     let api_key = if !matches.free.is_empty() {
         matches.free[0].clone()
     } else {
@@ -73,7 +73,11 @@ fn main() {
     env::set_var("RUST_LOG", loglevel);
     env_logger::init();
 
-    let mut handler = MyHandler::new(maybe_redis_uri);
+    let mut handler = match matches.opt_str("r") {
+        Some(uri) => MyHandler::new(DataStore::Redis { uri: uri }),
+        _ => MyHandler::new(DataStore::OnMemory),
+    };
+
     let r = RtmClient::login_and_run(&api_key, &mut handler);
     match r {
         Ok(_) => {}

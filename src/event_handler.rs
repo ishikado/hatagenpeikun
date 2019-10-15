@@ -17,6 +17,7 @@
 // This is a simple example of using slack-rs.
 //
 
+use crate::hatagenpei::controller::DataStore;
 use crate::hatagenpei::controller::*;
 use log::{debug, info, warn};
 use slack::api::rtm::StartResponse;
@@ -39,14 +40,14 @@ pub struct MyHandler {
     start_response: Option<StartResponse>,
     myuid: String,
     myname: String,
-    redis_uri: Option<String>,
+    data_store: DataStore,
     hatagenpei_controller: Option<HatagenpeiController>,
 }
 
 impl MyHandler {
-    pub fn new(redis_uri: Option<String>) -> MyHandler {
+    pub fn new(data_store: DataStore) -> MyHandler {
         return MyHandler {
-            redis_uri: redis_uri,
+            data_store: data_store,
             start_response: None,
             myuid: "".to_string(),
             myname: "".to_string(),
@@ -264,7 +265,8 @@ impl slack::EventHandler for MyHandler {
         self.start_response = Some(cli.start_response().clone());
         self.myuid = uid;
         self.myname = myname.clone();
-        self.hatagenpei_controller = Some(HatagenpeiController::new(&self.redis_uri, &self.myname));
+        self.hatagenpei_controller =
+            Some(HatagenpeiController::new(&self.data_store, &self.myname));
 
         // Send a message over the real time api websocket
     }
