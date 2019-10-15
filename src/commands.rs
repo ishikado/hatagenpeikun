@@ -14,9 +14,10 @@ pub fn on_hatagenpei(
     cli: &RtmClient,
     controller: &mut Option<HatagenpeiController>,
     message_user_name: &String,
+    message_user_id: &String,
     chid: &String,
 ) -> Result<(), failure::Error> {
-    info!("called on_hatagenpei");
+    info!("called on_hatagenpei, user_id = {}", message_user_id);
     match controller {
         Some(controller) => {
             let res = controller.step(message_user_name);

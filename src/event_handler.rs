@@ -103,7 +103,7 @@ impl MyHandler {
                             .trim_start()
                             .to_string();
                         // メンションに対する処理
-                        self.on_mention(cli, chid, &message_user_name, text_without_mention)?;
+                        self.on_mention(cli, chid, &message_user_name, &message_user_id, text_without_mention)?;
                     }
                     // メッセージ全般に対する処理
                     self.on_standard_message(cli, chid, ms)?;
@@ -133,6 +133,7 @@ impl MyHandler {
         cli: &RtmClient,
         chid: &String,
         message_user_name: &String,
+        message_user_id: &String,
         text_without_mention: &String,
     ) -> Result<(), failure::Error> {
         use super::commands::*;
@@ -167,6 +168,7 @@ impl MyHandler {
                         cli,
                         &mut handler.hatagenpei_controller,
                         message_user_name,
+                        message_user_id,
                         chid,
                     )?;
                     return Ok(());

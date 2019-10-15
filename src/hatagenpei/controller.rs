@@ -307,8 +307,8 @@ pub struct StepResult {
 impl HatagenpeiController {
     pub fn new(data_store: &DataStore, bot_name: &String) -> HatagenpeiController {
         let score_operator: Box<dyn ScoreOperation> = match data_store {
-            DataStore::Redis { uri: uri } => Box::new(ScoresInRedis::new(uri, bot_name.clone())),
-            OnMemory => Box::new(ScoresInMap::new(bot_name.clone())),
+            DataStore::Redis { uri } => Box::new(ScoresInRedis::new(uri, bot_name.clone())),
+            DataStore::OnMemory => Box::new(ScoresInMap::new(bot_name.clone())),
         };
 
         return HatagenpeiController {
