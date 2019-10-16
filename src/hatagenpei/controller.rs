@@ -434,7 +434,9 @@ impl ScoreOperation for ScoresInPostgre {
             "SELECT name, data, data FROM {} where name = $1",
             DB_HATAGENPEI_WINLOSES_KEY
         );
-        let res = conn.query(&select_query[..], &[&player_name]).unwrap();
+        let res = conn.query(&select_query[..], &[&player_name])
+            .expect("failed to select query for update_winloses");
+
 
         let mut win_lose = if res.len() == 0 {
             WinLose::new(0, 0, player_name)
@@ -452,14 +454,14 @@ impl ScoreOperation for ScoresInPostgre {
 
         let s = serde_json::to_string(&win_lose).unwrap();
 
-        // insert
-        if res.len() == 0 {
+        // insert 
+       if res.len() == 0 {
             let insert_query = format!(
                 "INSERT INTO {} (name, data) VALUES ($1, $2)",
                 DB_HATAGENPEI_WINLOSES_KEY
             );
             conn.execute(&insert_query[..], &[&player_name, &s])
-                .unwrap();
+               .expect("failed to insert query for update_winloses");
         }
         // update
         else {
@@ -468,7 +470,7 @@ impl ScoreOperation for ScoresInPostgre {
                 DB_HATAGENPEI_WINLOSES_KEY
             );
             conn.execute(&update_query[..], &[&s, &player_name])
-                .unwrap();
+                .expect("failed to update query for update_winloses");
         }
 
         return true;
@@ -483,7 +485,9 @@ impl ScoreOperation for ScoresInPostgre {
             "SELECT name, data, data FROM {}",
             DB_HATAGENPEI_WINLOSES_KEY
         );
-        let query_result = conn.query(&select_query[..], &[]).unwrap();
+        let query_result = conn.query(&select_query[..], &[])
+            .expect("failed to select query for get_win_loses");
+
         for row in &query_result {
             let data: String = row.get(1);
             let win_lose = serde_json::from_str(&data[..]).unwrap();
