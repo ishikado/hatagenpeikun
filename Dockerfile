@@ -18,7 +18,5 @@ ENV PATH $PATH:/root/.cargo/bin
 # fix me!!
 COPY . hatagenpeikun
 
-#RUN cd hatagenpeikun &&  cargo install --path .
-#CMD ["/bin/zsh", "-c", "RUST_BACKTRACE=1 /root/.cargo/bin/hatagenpeikun $TOKEN -l $LEVEL -p $DATABASE_URL"]
-
-CMD ["/bin/zsh", "-c", "cd hatagenpeikun && RUST_BACKTRACE=1 /root/.cargo/bin/cargo run --bin hatagenpeikun $TOKEN -l $LEVEL -p $DATABASE_URL"]
+RUN cd hatagenpeikun &&  cargo install --path .
+CMD ["/bin/zsh", "-c", "RUST_BACKTRACE=1 /root/.cargo/bin/hatagenpeikun $TOKEN -l $LEVEL -p $DATABASE_URL"]
