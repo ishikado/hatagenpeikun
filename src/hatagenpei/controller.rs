@@ -5,6 +5,7 @@ extern crate redis;
 extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
+extern crate postgres;
 
 use redis::*;
 use serde::{Deserialize, Serialize};
@@ -12,6 +13,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 use super::game::*;
+use postgres::{Connection, TlsMode};
+
 
 // TODO: このあたりの設定は https://docs.rs/config/0.9.3/config/ を使って、Settings.toml から指定できるようにしたい
 const DB_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
@@ -111,7 +114,20 @@ impl ScoresInRedis {
 
 impl ScoresInPostgre {
     pub fn new(postgre_uri: &String, bot_name: String) -> ScoresInPostgre {
-        // ここで必要なテーブルは作ってしまいたい
+        // postgre に接続
+        let conn = Connection::connect(&postgre_uri[..], TlsMode::None).unwrap();
+
+        // progress管理テーブル作成
+        conn.execute("CREATE TABLE IF NOT EXISTS $1 (
+                    name            VARCHAR NOT NULL,
+                    data            VARCHAR NOT NULL
+                  )", &[&DB_HATAGENPEI_PROGRESS_KEY]).unwrap();
+        // winlose 管理テーブル作成
+        conn.execute("CREATE TABLE IF NOT EXISTS $1 (
+                    name            VARCHAR NOT NULL,
+                    data            VARCHAR NOT NULL
+                  )", &[&DB_HATAGENPEI_WINLOSES_KEY]).unwrap();
+        
 
         return ScoresInPostgre {
             postgre_uri: postgre_uri.clone(),
@@ -197,8 +213,6 @@ impl ScoreOperation for ScoresInRedis {
     //!
     fn get_progress(&mut self, player_name: &str) -> Progress {
         // TODO: エラーハンドリング
-
-        //  TODO: DBへの接続は、new するときにやってしまったほうがよいかも
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
         let get_result: RedisResult<String> = con.hget(DB_HATAGENPEI_PROGRESS_KEY, player_name);
@@ -318,36 +332,65 @@ impl ScoreOperation for ScoresInRedis {
 // TODO 実装する
 impl ScoreOperation for ScoresInPostgre {
     fn get_progress(&mut self, player_name: &str) -> Progress {
-        Progress::new(
-            &Player::new(
-                player_name.to_string(),
-                Score {
-                    score: HATAGENPEI_INIT_SCORE,
-                    matoi: true,
-                },
-                Score {
-                    score: 0,
-                    matoi: false,
-                },
-            ),
-            &Player::new(
-                player_name.to_string(),
-                Score {
-                    score: HATAGENPEI_INIT_SCORE,
-                    matoi: true,
-                },
-                Score {
-                    score: 0,
-                    matoi: false,
-                },
-            ))
+
+        // postgre に接続
+        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None).unwrap();
+
+        // 見つからなかった場合は、insert を実行する
+        let res = conn.query("SELECT name, data FROM {} where name = $1", &[&DB_HATAGENPEI_PROGRESS_KEY, &player_name]).unwrap();
+
+        if res.len() == 0 {
+            let progress = Progress::new(
+                &Player::new(
+                    player_name.to_string(),
+                    Score {
+                        score: HATAGENPEI_INIT_SCORE,
+                        matoi: true,
+                    },
+                    Score {
+                        score: 0,
+                        matoi: false,
+                    },
+                ),
+                &Player::new(
+                    self.bot_name.clone(),
+                    Score {
+                        score: HATAGENPEI_INIT_SCORE,
+                        matoi: true,
+                    },
+                    Score {
+                        score: 0,
+                        matoi: false,
+                    },
+                ),
+            );
+            self.insert_progress(&progress);
+            return progress;
+        }
+        else{
+            // 複数ある場合でも、1つだけ返す
+            let r = res.get(0);
+            let data : String = r.get(1);
+            let progress = serde_json::from_str(&data[..]).unwrap();
+            return progress;
+        }
     }
 
     fn insert_progress(&mut self, progress: &Progress) -> bool {
+        // すでに要素が存在している場合は、SQL update
+        // そうでない場合は SQL insert を行う
+        
+        // update sample code
+        //conn.execute("UPDATE hatagenpei_progress SET data = $1 WHERE name = $2", &[&"data1", &"steave2"]).unwrap();
+        
+
+
         return true;
     }
 
     fn delete_progress(&mut self, player_name: &str) -> bool {
+        // delete sample code
+        // conn.execute("DELETE FROM hatagenpei_progress", &[]).unwrap();
         return true;
     }
     fn update_winloses(&mut self, player_name: &str, is_player_win: bool) -> bool {
