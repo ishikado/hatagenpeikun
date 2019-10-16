@@ -15,7 +15,7 @@ use super::game::*;
 
 // TODO: このあたりの設定は https://docs.rs/config/0.9.3/config/ を使って、Settings.toml から指定できるようにしたい
 const DB_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
-const DB_REDIS_HATAGENPEI_WINLOSES_KEY: &str = "hatagenpei_winloses";
+const DB_HATAGENPEI_WINLOSES_KEY: &str = "hatagenpei_winloses";
 const HATAGENPEI_INIT_SCORE: i32 = 29; // 小旗が両替できるように10x(x>=0) + 9 本持ちで開始すること
 
 pub enum DataStore {
@@ -111,6 +111,8 @@ impl ScoresInRedis {
 
 impl ScoresInPostgre {
     pub fn new(postgre_uri: &String, bot_name: String) -> ScoresInPostgre {
+        // ここで必要なテーブルは作ってしまいたい
+
         return ScoresInPostgre {
             postgre_uri: postgre_uri.clone(),
             bot_name: bot_name,
@@ -266,7 +268,7 @@ impl ScoreOperation for ScoresInRedis {
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
 
-        let get_result: RedisResult<String> = con.hget(DB_REDIS_HATAGENPEI_WINLOSES_KEY, player_name);
+        let get_result: RedisResult<String> = con.hget(DB_HATAGENPEI_WINLOSES_KEY, player_name);
 
         let mut win_lose = match get_result {
             Ok(json) => serde_json::from_str(&json[..]).unwrap(),
@@ -283,7 +285,7 @@ impl ScoreOperation for ScoresInRedis {
         // 勝敗テーブルに勝敗を書き込み
         let s = serde_json::to_string(&win_lose).unwrap();
         let _: () = con
-            .hset(DB_REDIS_HATAGENPEI_WINLOSES_KEY, player_name, s)
+            .hset(DB_HATAGENPEI_WINLOSES_KEY, player_name, s)
             .unwrap();
 
         return true;
@@ -295,7 +297,7 @@ impl ScoreOperation for ScoresInRedis {
         let mut con = client.get_connection().unwrap();
 
         let btreemap_result: RedisResult<BTreeMap<String, String>> =
-            con.hgetall(DB_REDIS_HATAGENPEI_WINLOSES_KEY);
+            con.hgetall(DB_HATAGENPEI_WINLOSES_KEY);
 
         match btreemap_result {
             Ok(win_lose_map) => {
