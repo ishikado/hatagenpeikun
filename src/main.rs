@@ -45,6 +45,7 @@ fn main() {
     );
 
     opts.optopt("r", "redis_uri", "set redis uri", "");
+    opts.optopt("p", "postgre_uri", "set postgre uri", "");
     opts.optflag("h", "help", "print this help menu");
 
     let matches = match opts.parse(&args[1..]) {
@@ -73,9 +74,15 @@ fn main() {
     env::set_var("RUST_LOG", loglevel);
     env_logger::init();
 
+    // url が 複数指定されていた場合、使用する datastore は redis が優先される
     let mut handler = match matches.opt_str("r") {
         Some(uri) => MyHandler::new(DataStore::Redis { uri: uri }),
-        _ => MyHandler::new(DataStore::OnMemory),
+        _ => {
+            match matches.opt_str("p") {
+                Some(uri) => MyHandler::new(DataStore::Postgre { uri: uri}),
+                _ => MyHandler::new(DataStore::OnMemory)
+            }
+        }
     };
 
     let r = RtmClient::login_and_run(&api_key, &mut handler);
