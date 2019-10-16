@@ -14,12 +14,13 @@ use std::collections::BTreeMap;
 use super::game::*;
 
 // TODO: このあたりの設定は https://docs.rs/config/0.9.3/config/ を使って、Settings.toml から指定できるようにしたい
-const REDIS_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
-const REDIS_HATAGENPEI_WINLOSES_KEY: &str = "hatagenpei_winloses";
+const DB_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
+const DB_REDIS_HATAGENPEI_WINLOSES_KEY: &str = "hatagenpei_winloses";
 const HATAGENPEI_INIT_SCORE: i32 = 29; // 小旗が両替できるように10x(x>=0) + 9 本持ちで開始すること
 
 pub enum DataStore {
     Redis { uri: String },
+    Postgre { uri: String },
     OnMemory,
 }
 
@@ -84,6 +85,11 @@ struct ScoresInRedis {
     bot_name: String,
 }
 
+struct ScoresInPostgre {
+    postgre_uri: String,
+    bot_name: String,
+}
+
 impl ScoresInMap {
     pub fn new(bot_name: String) -> ScoresInMap {
         return ScoresInMap {
@@ -98,6 +104,15 @@ impl ScoresInRedis {
     pub fn new(redis_uri: &String, bot_name: String) -> ScoresInRedis {
         return ScoresInRedis {
             redis_uri: redis_uri.clone(),
+            bot_name: bot_name,
+        };
+    }
+}
+
+impl ScoresInPostgre {
+    pub fn new(postgre_uri: &String, bot_name: String) -> ScoresInPostgre {
+        return ScoresInPostgre {
+            postgre_uri: postgre_uri.clone(),
             bot_name: bot_name,
         };
     }
@@ -184,7 +199,7 @@ impl ScoreOperation for ScoresInRedis {
         //  TODO: DBへの接続は、new するときにやってしまったほうがよいかも
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
-        let get_result: RedisResult<String> = con.hget(REDIS_HATAGENPEI_PROGRESS_KEY, player_name);
+        let get_result: RedisResult<String> = con.hget(DB_HATAGENPEI_PROGRESS_KEY, player_name);
         let progress;
 
         // スコアを json 形式で取り出す
@@ -233,7 +248,7 @@ impl ScoreOperation for ScoresInRedis {
         let mut con = client.get_connection().unwrap();
         let s = serde_json::to_string(progress).unwrap();
         let _: () = con
-            .hset(REDIS_HATAGENPEI_PROGRESS_KEY, progress.user.name.clone(), s)
+            .hset(DB_HATAGENPEI_PROGRESS_KEY, progress.user.name.clone(), s)
             .unwrap();
         return true;
     }
@@ -242,7 +257,7 @@ impl ScoreOperation for ScoresInRedis {
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
         let _res: i32 = con
-            .hdel(REDIS_HATAGENPEI_PROGRESS_KEY, player_name)
+            .hdel(DB_HATAGENPEI_PROGRESS_KEY, player_name)
             .unwrap();
         return true;
     }
@@ -251,7 +266,7 @@ impl ScoreOperation for ScoresInRedis {
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
 
-        let get_result: RedisResult<String> = con.hget(REDIS_HATAGENPEI_WINLOSES_KEY, player_name);
+        let get_result: RedisResult<String> = con.hget(DB_REDIS_HATAGENPEI_WINLOSES_KEY, player_name);
 
         let mut win_lose = match get_result {
             Ok(json) => serde_json::from_str(&json[..]).unwrap(),
@@ -268,7 +283,7 @@ impl ScoreOperation for ScoresInRedis {
         // 勝敗テーブルに勝敗を書き込み
         let s = serde_json::to_string(&win_lose).unwrap();
         let _: () = con
-            .hset(REDIS_HATAGENPEI_WINLOSES_KEY, player_name, s)
+            .hset(DB_REDIS_HATAGENPEI_WINLOSES_KEY, player_name, s)
             .unwrap();
 
         return true;
@@ -280,7 +295,7 @@ impl ScoreOperation for ScoresInRedis {
         let mut con = client.get_connection().unwrap();
 
         let btreemap_result: RedisResult<BTreeMap<String, String>> =
-            con.hgetall(REDIS_HATAGENPEI_WINLOSES_KEY);
+            con.hgetall(DB_REDIS_HATAGENPEI_WINLOSES_KEY);
 
         match btreemap_result {
             Ok(win_lose_map) => {
@@ -297,6 +312,53 @@ impl ScoreOperation for ScoresInRedis {
     }
 }
 
+
+// TODO 実装する
+impl ScoreOperation for ScoresInPostgre {
+    fn get_progress(&mut self, player_name: &str) -> Progress {
+        Progress::new(
+            &Player::new(
+                player_name.to_string(),
+                Score {
+                    score: HATAGENPEI_INIT_SCORE,
+                    matoi: true,
+                },
+                Score {
+                    score: 0,
+                    matoi: false,
+                },
+            ),
+            &Player::new(
+                player_name.to_string(),
+                Score {
+                    score: HATAGENPEI_INIT_SCORE,
+                    matoi: true,
+                },
+                Score {
+                    score: 0,
+                    matoi: false,
+                },
+            ))
+    }
+
+    fn insert_progress(&mut self, progress: &Progress) -> bool {
+        return true;
+    }
+
+    fn delete_progress(&mut self, player_name: &str) -> bool {
+        return true;
+    }
+    fn update_winloses(&mut self, player_name: &str, is_player_win: bool) -> bool {
+        return true;
+    }
+
+    fn get_win_loses(&self) -> Vec<WinLose> {
+        let mut res = vec![];
+        return res;
+    }
+}
+
+
 pub struct StepResult {
     /// HatagenpeiController::step の実行ゲームログ
     pub logs: Vec<String>,
@@ -308,6 +370,7 @@ impl HatagenpeiController {
     pub fn new(data_store: &DataStore, bot_name: &String) -> HatagenpeiController {
         let score_operator: Box<dyn ScoreOperation> = match data_store {
             DataStore::Redis { uri } => Box::new(ScoresInRedis::new(uri, bot_name.clone())),
+            DataStore::Postgre { uri } => Box::new(ScoresInPostgre::new(uri, bot_name.clone())),
             DataStore::OnMemory => Box::new(ScoresInMap::new(bot_name.clone())),
         };
 
