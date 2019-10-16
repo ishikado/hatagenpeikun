@@ -114,7 +114,7 @@ impl ScoresInRedis {
 impl ScoresInPostgre {
     pub fn new(postgre_uri: &String, bot_name: String) -> ScoresInPostgre {
         // postgre に接続
-        let conn = Connection::connect(&postgre_uri[..], TlsMode::None).unwrap();
+        let conn = Connection::connect(&postgre_uri[..], TlsMode::None).expect("failed to connect postgres");
 
         // progress管理テーブル作成
         let create_progress_table_query = format!(
@@ -124,7 +124,7 @@ impl ScoresInPostgre {
                   )",
             DB_HATAGENPEI_PROGRESS_KEY
         );
-        conn.execute(&create_progress_table_query[..], &[]).unwrap();
+        conn.execute(&create_progress_table_query[..], &[]).expect("failed to create progress table");
 
         // winlose 管理テーブル作成
         let create_winlose_table_query = format!(
@@ -134,7 +134,7 @@ impl ScoresInPostgre {
                   )",
             DB_HATAGENPEI_WINLOSES_KEY
         );
-        conn.execute(&create_winlose_table_query[..], &[]).unwrap();
+        conn.execute(&create_winlose_table_query[..], &[]).expect("failed to create winlose table");
 
         return ScoresInPostgre {
             postgre_uri: postgre_uri.clone(),
@@ -376,7 +376,7 @@ impl ScoreOperation for ScoresInPostgre {
             // 複数ある場合でも、1つだけ返す
             let r = res.get(0);
             let data: String = r.get(1);
-            let progress = serde_json::from_str(&data[..]).unwrap();
+            let progress = serde_json::from_str(&data[..]).expect("failed to serde_json::from_str");
             return progress;
         }
     }
@@ -395,7 +395,7 @@ impl ScoreOperation for ScoresInPostgre {
             .query(&select_query[..], &[&&progress.user.name[..]])
             .expect("failed to select query for insert_progress");
 
-        let jsonstr = serde_json::to_string(&progress).unwrap();
+        let jsonstr = serde_json::to_string(&progress).expect("failed to serde_json::to_string");
         if res.len() == 0 {
             // insert
             let insert_query = format!(
@@ -443,7 +443,7 @@ impl ScoreOperation for ScoresInPostgre {
         } else {
             let r = res.get(0);
             let data: String = r.get(1);
-            serde_json::from_str(&data[..]).unwrap()
+            serde_json::from_str(&data[..]).expect("failed to serde_json::from_str")
         };
 
         if is_player_win {
@@ -452,7 +452,7 @@ impl ScoreOperation for ScoresInPostgre {
             win_lose.lose += 1;
         }
 
-        let s = serde_json::to_string(&win_lose).unwrap();
+        let s = serde_json::to_string(&win_lose).expect("failed to serde_json::to_string");
 
         // insert 
        if res.len() == 0 {
@@ -490,7 +490,7 @@ impl ScoreOperation for ScoresInPostgre {
 
         for row in &query_result {
             let data: String = row.get(1);
-            let win_lose = serde_json::from_str(&data[..]).unwrap();
+            let win_lose = serde_json::from_str(&data[..]).expect("failed to serde_json::from_str");
             res.push(win_lose);
         }
         return res;
