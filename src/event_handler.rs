@@ -103,7 +103,13 @@ impl MyHandler {
                             .trim_start()
                             .to_string();
                         // メンションに対する処理
-                        self.on_mention(cli, chid, &message_user_name, &message_user_id, text_without_mention)?;
+                        self.on_mention(
+                            cli,
+                            chid,
+                            &message_user_name,
+                            &message_user_id,
+                            text_without_mention,
+                        )?;
                     }
                     // メッセージ全般に対する処理
                     self.on_standard_message(cli, chid, ms)?;

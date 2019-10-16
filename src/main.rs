@@ -77,12 +77,10 @@ fn main() {
     // url が 複数指定されていた場合、使用する datastore は redis が優先される
     let mut handler = match matches.opt_str("r") {
         Some(uri) => MyHandler::new(DataStore::Redis { uri: uri }),
-        _ => {
-            match matches.opt_str("p") {
-                Some(uri) => MyHandler::new(DataStore::Postgre { uri: uri}),
-                _ => MyHandler::new(DataStore::OnMemory)
-            }
-        }
+        _ => match matches.opt_str("p") {
+            Some(uri) => MyHandler::new(DataStore::Postgre { uri: uri }),
+            _ => MyHandler::new(DataStore::OnMemory),
+        },
     };
 
     let r = RtmClient::login_and_run(&api_key, &mut handler);

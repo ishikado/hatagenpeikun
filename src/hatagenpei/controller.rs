@@ -1,11 +1,11 @@
 //!
 //! 旗源平をbotで実現するモジュール
 //!
+extern crate postgres;
 extern crate redis;
 extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
-extern crate postgres;
 
 use redis::*;
 use serde::{Deserialize, Serialize};
@@ -14,7 +14,6 @@ use std::collections::BTreeMap;
 
 use super::game::*;
 use postgres::{Connection, TlsMode};
-
 
 // TODO: このあたりの設定は https://docs.rs/config/0.9.3/config/ を使って、Settings.toml から指定できるようにしたい
 const DB_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
@@ -118,19 +117,23 @@ impl ScoresInPostgre {
         let conn = Connection::connect(&postgre_uri[..], TlsMode::None).unwrap();
 
         // progress管理テーブル作成
-        let create_progress_table_query = 
-            format!("CREATE TABLE IF NOT EXISTS {} (
+        let create_progress_table_query = format!(
+            "CREATE TABLE IF NOT EXISTS {} (
                     name            VARCHAR NOT NULL,
                     data            VARCHAR NOT NULL
-                  )", DB_HATAGENPEI_PROGRESS_KEY);
+                  )",
+            DB_HATAGENPEI_PROGRESS_KEY
+        );
         conn.execute(&create_progress_table_query[..], &[]).unwrap();
 
         // winlose 管理テーブル作成
-        let create_winlose_table_query = 
-            format!("CREATE TABLE IF NOT EXISTS {} (
+        let create_winlose_table_query = format!(
+            "CREATE TABLE IF NOT EXISTS {} (
                     name            VARCHAR NOT NULL,
                     data            VARCHAR NOT NULL
-                  )", DB_HATAGENPEI_WINLOSES_KEY);
+                  )",
+            DB_HATAGENPEI_WINLOSES_KEY
+        );
         conn.execute(&create_winlose_table_query[..], &[]).unwrap();
 
         return ScoresInPostgre {
@@ -276,9 +279,7 @@ impl ScoreOperation for ScoresInRedis {
     fn delete_progress(&mut self, player_name: &str) -> bool {
         let client = Client::open(&self.redis_uri[..]).unwrap();
         let mut con = client.get_connection().unwrap();
-        let _res: i32 = con
-            .hdel(DB_HATAGENPEI_PROGRESS_KEY, player_name)
-            .unwrap();
+        let _res: i32 = con.hdel(DB_HATAGENPEI_PROGRESS_KEY, player_name).unwrap();
         return true;
     }
     fn update_winloses(&mut self, player_name: &str, is_player_win: bool) -> bool {
@@ -332,16 +333,17 @@ impl ScoreOperation for ScoresInRedis {
     }
 }
 
-
 // TODO 実装する
 impl ScoreOperation for ScoresInPostgre {
     fn get_progress(&mut self, player_name: &str) -> Progress {
-
         // postgre に接続
         let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None).unwrap();
 
         // 見つからなかった場合は、insert を実行する
-        let select_query = format!("SELECT name, data FROM {} where name = $1", DB_HATAGENPEI_PROGRESS_KEY);
+        let select_query = format!(
+            "SELECT name, data FROM {} where name = $1",
+            DB_HATAGENPEI_PROGRESS_KEY
+        );
         let res = conn.query(&select_query[..], &[&player_name]).unwrap();
 
         if res.len() == 0 {
@@ -371,11 +373,10 @@ impl ScoreOperation for ScoresInPostgre {
             );
             self.insert_progress(&progress);
             return progress;
-        }
-        else{
+        } else {
             // 複数ある場合でも、1つだけ返す
             let r = res.get(0);
-            let data : String = r.get(1);
+            let data: String = r.get(1);
             let progress = serde_json::from_str(&data[..]).unwrap();
             return progress;
         }
@@ -387,19 +388,31 @@ impl ScoreOperation for ScoresInPostgre {
 
         // すでに要素が存在している場合は、SQL update
         // そうでない場合は SQL insert を行う
-        let select_query = format!("SELECT name, data FROM {} where name = $1", DB_HATAGENPEI_PROGRESS_KEY);
-        let res = conn.query(&select_query[..], &[&&progress.user.name[..]]).unwrap();
-        
+        let select_query = format!(
+            "SELECT name, data FROM {} where name = $1",
+            DB_HATAGENPEI_PROGRESS_KEY
+        );
+        let res = conn
+            .query(&select_query[..], &[&&progress.user.name[..]])
+            .unwrap();
+
         let jsonstr = serde_json::to_string(&progress).unwrap();
         if res.len() == 0 {
             // insert
-            let insert_query = format!("INSERT INTO {} (name, data) VALUES ($1, $2)", DB_HATAGENPEI_PROGRESS_KEY);
-            conn.execute(&insert_query[..], &[&&progress.user.name[..], &jsonstr ]).unwrap();
-        }
-        else{
+            let insert_query = format!(
+                "INSERT INTO {} (name, data) VALUES ($1, $2)",
+                DB_HATAGENPEI_PROGRESS_KEY
+            );
+            conn.execute(&insert_query[..], &[&&progress.user.name[..], &jsonstr])
+                .unwrap();
+        } else {
             // update
-            let update_query = format!("UPDATE {} SET data = $1 WHERE name = $2", DB_HATAGENPEI_PROGRESS_KEY);
-            conn.execute(&update_query[..], &[&jsonstr, &&progress.user.name[..]]).unwrap();
+            let update_query = format!(
+                "UPDATE {} SET data = $1 WHERE name = $2",
+                DB_HATAGENPEI_PROGRESS_KEY
+            );
+            conn.execute(&update_query[..], &[&jsonstr, &&progress.user.name[..]])
+                .unwrap();
         }
         return true;
     }
@@ -414,20 +427,22 @@ impl ScoreOperation for ScoresInPostgre {
     fn update_winloses(&mut self, player_name: &str, is_player_win: bool) -> bool {
         // postgre に接続
         let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None).unwrap();
-        
+
         // 勝敗を取得
-        let select_query = format!("SELECT name, data, data FROM {} where name = $1", DB_HATAGENPEI_WINLOSES_KEY);
+        let select_query = format!(
+            "SELECT name, data, data FROM {} where name = $1",
+            DB_HATAGENPEI_WINLOSES_KEY
+        );
         let res = conn.query(&select_query[..], &[&player_name]).unwrap();
 
-        let mut win_lose = 
-            if res.len() == 0 {
-                WinLose::new(0, 0, player_name)
-            } else {
-                let r = res.get(0);
-                let data : String = r.get(1);
-                serde_json::from_str(&data[..]).unwrap()
-            };
-        
+        let mut win_lose = if res.len() == 0 {
+            WinLose::new(0, 0, player_name)
+        } else {
+            let r = res.get(0);
+            let data: String = r.get(1);
+            serde_json::from_str(&data[..]).unwrap()
+        };
+
         if is_player_win {
             win_lose.win += 1;
         } else {
@@ -435,16 +450,24 @@ impl ScoreOperation for ScoresInPostgre {
         }
 
         let s = serde_json::to_string(&win_lose).unwrap();
-        
+
         // insert
         if res.len() == 0 {
-            let insert_query = format!("INSERT INTO {} (name, data) VALUES ($1, $2)", DB_HATAGENPEI_WINLOSES_KEY);
-            conn.execute(&insert_query[..], &[&player_name, &s ]).unwrap();
+            let insert_query = format!(
+                "INSERT INTO {} (name, data) VALUES ($1, $2)",
+                DB_HATAGENPEI_WINLOSES_KEY
+            );
+            conn.execute(&insert_query[..], &[&player_name, &s])
+                .unwrap();
         }
         // update
-        else{
-            let update_query = format!("UPDATE {} SET data = $1 WHERE name = $2", DB_HATAGENPEI_WINLOSES_KEY);
-            conn.execute(&update_query[..], &[&s, &player_name]).unwrap();
+        else {
+            let update_query = format!(
+                "UPDATE {} SET data = $1 WHERE name = $2",
+                DB_HATAGENPEI_WINLOSES_KEY
+            );
+            conn.execute(&update_query[..], &[&s, &player_name])
+                .unwrap();
         }
 
         return true;
@@ -453,19 +476,21 @@ impl ScoreOperation for ScoresInPostgre {
     fn get_win_loses(&self) -> Vec<WinLose> {
         let mut res = vec![];
         let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None).unwrap();
-        
+
         // 勝敗を取得
-        let select_query = format!("SELECT name, data, data FROM {}", DB_HATAGENPEI_WINLOSES_KEY);
+        let select_query = format!(
+            "SELECT name, data, data FROM {}",
+            DB_HATAGENPEI_WINLOSES_KEY
+        );
         let query_result = conn.query(&select_query[..], &[]).unwrap();
         for row in &query_result {
-            let data : String = row.get(1);
+            let data: String = row.get(1);
             let win_lose = serde_json::from_str(&data[..]).unwrap();
             res.push(win_lose);
         }
         return res;
     }
 }
-
 
 pub struct StepResult {
     /// HatagenpeiController::step の実行ゲームログ
