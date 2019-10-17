@@ -21,7 +21,17 @@ pub fn on_hatagenpei(
     match controller {
         Some(controller) => {
             let res = controller.step(message_user_name);
-            let joined_logs = ["```", &res.logs.join("\n"), "```"].concat();
+
+            let prefix = if res.is_start {
+                "旗源平を始めるげん!\n\n"
+            }
+            else{
+                ""
+            };
+
+            let joined_logs = [prefix, "```", &res.logs.join("\n"), "```"].concat();
+
+
             let _ = cli.sender().send_message(chid, &joined_logs);
         }
         None => {

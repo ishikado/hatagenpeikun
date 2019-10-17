@@ -323,6 +323,8 @@ pub struct StepResult {
     pub logs: Vec<String>,
     /// ゲームが終了したかどうか
     pub is_over: bool,
+    /// この step 呼び出しで、ゲームが開始したかどうか
+    pub is_start: bool
 }
 
 impl HatagenpeiController {
@@ -346,6 +348,7 @@ impl HatagenpeiController {
     /// 2step旗源平の実行を行う（player -> bot）
     pub fn step(&mut self, player_name: &str) -> StepResult {
         let seed = rand::random::<u64>();
+        let mut is_start = false;
         // 現在の状態でゲームを行う
         let progress = match self.score_operator.get_progress(player_name) {
             Some(progress) => progress,
@@ -375,6 +378,7 @@ impl HatagenpeiController {
                         },
                     ),
                 );
+                is_start = true;
                 // 登録
                 self.score_operator.insert_progress(&progress);
                 progress
@@ -454,6 +458,7 @@ impl HatagenpeiController {
         return StepResult {
             logs: logstr,
             is_over: is_over,
+            is_start: is_start
         };
     }
 }
