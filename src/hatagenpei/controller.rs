@@ -2,12 +2,10 @@
 //! 旗源平をbotで実現するモジュール
 //!
 extern crate postgres;
-extern crate redis;
 extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 
-use redis::*;
 use serde::{Deserialize, Serialize};
 
 use std::collections::BTreeMap;
@@ -21,7 +19,6 @@ const DB_HATAGENPEI_WINLOSES_KEY: &str = "hatagenpei_winloses";
 const HATAGENPEI_INIT_SCORE: i32 = 29; // 小旗が両替できるように10x(x>=0) + 9 本持ちで開始すること
 
 pub enum DataStore {
-    Redis { uri: String },
     Postgre { uri: String },
     OnMemory,
 }
@@ -64,8 +61,8 @@ pub struct HatagenpeiController {
 }
 
 trait ScoreOperation {
-    /// player_name で指定されたプレイヤーの情報を取得する。スコアがまだなかった場合は、初期値が insert されたあと、取得される。
-    fn get_progress(&mut self, player_name: &str) -> Progress;
+    /// player_name で指定されたプレイヤーの情報を取得する。スコアがまだなかった場合は、None になる
+    fn get_progress(&mut self, player_name: &str) -> Option<Progress>;
     /// progress で指定されたプレイヤーの情報を登録する。すでに登録済みの場合は、上書きされる
     fn insert_progress(&mut self, progress: &Progress) -> bool;
     /// player_name で指定されたプレイヤーの情報を削除する。
@@ -79,11 +76,6 @@ trait ScoreOperation {
 struct ScoresInMap {
     score_map: BTreeMap<String, Progress>,
     winlose_map: BTreeMap<String, WinLose>,
-    bot_name: String,
-}
-
-struct ScoresInRedis {
-    redis_uri: String,
     bot_name: String,
 }
 
@@ -102,19 +94,11 @@ impl ScoresInMap {
     }
 }
 
-impl ScoresInRedis {
-    pub fn new(redis_uri: &String, bot_name: String) -> ScoresInRedis {
-        return ScoresInRedis {
-            redis_uri: redis_uri.clone(),
-            bot_name: bot_name,
-        };
-    }
-}
-
 impl ScoresInPostgre {
     pub fn new(postgre_uri: &String, bot_name: String) -> ScoresInPostgre {
         // postgre に接続
-        let conn = Connection::connect(&postgre_uri[..], TlsMode::None).expect("failed to connect postgres");
+        let conn = Connection::connect(&postgre_uri[..], TlsMode::None)
+            .expect("failed to connect postgres");
 
         // progress管理テーブル作成
         let create_progress_table_query = format!(
@@ -124,7 +108,8 @@ impl ScoresInPostgre {
                   )",
             DB_HATAGENPEI_PROGRESS_KEY
         );
-        conn.execute(&create_progress_table_query[..], &[]).expect("failed to create progress table");
+        conn.execute(&create_progress_table_query[..], &[])
+            .expect("failed to create progress table");
 
         // winlose 管理テーブル作成
         let create_winlose_table_query = format!(
@@ -134,7 +119,8 @@ impl ScoresInPostgre {
                   )",
             DB_HATAGENPEI_WINLOSES_KEY
         );
-        conn.execute(&create_winlose_table_query[..], &[]).expect("failed to create winlose table");
+        conn.execute(&create_winlose_table_query[..], &[])
+            .expect("failed to create winlose table");
 
         return ScoresInPostgre {
             postgre_uri: postgre_uri.clone(),
@@ -144,38 +130,12 @@ impl ScoresInPostgre {
 }
 
 impl ScoreOperation for ScoresInMap {
-    fn get_progress(&mut self, player_name: &str) -> Progress {
-        match self.score_map.get(player_name) {
-            None => {
-                self.insert_progress(&Progress::new(
-                    &Player::new(
-                        player_name.to_string(),
-                        Score {
-                            score: HATAGENPEI_INIT_SCORE,
-                            matoi: true,
-                        },
-                        Score {
-                            score: 0,
-                            matoi: false,
-                        },
-                    ),
-                    &Player::new(
-                        self.bot_name.clone(),
-                        Score {
-                            score: HATAGENPEI_INIT_SCORE,
-                            matoi: true,
-                        },
-                        Score {
-                            score: 0,
-                            matoi: false,
-                        },
-                    ),
-                ));
-            }
-            _ => {}
-        };
-        // 空の場合は上で中身を insert しているので、必ず取り出せる
-        return self.score_map.get(player_name).unwrap().clone();
+    fn get_progress(&mut self, player_name: &str) -> Option<Progress> {
+        if let Some(progress) = self.score_map.get(player_name) {
+            return Some(progress.clone());
+        } else {
+            return None;
+        }
     }
 
     fn insert_progress(&mut self, progress: &Progress) -> bool {
@@ -212,178 +172,35 @@ impl ScoreOperation for ScoresInMap {
     }
 }
 
-impl ScoreOperation for ScoresInRedis {
-    //!
-    //! redis接続周りで unwrap を多様して、エラーになった場合 panic させる作りになっている
-    //! これは、エラーハンドリングをちゃんと行ったとしても、特にリカバリができるわけでもないため
-    //! どちらでも良いなら、panic させてしまう方が実装的には楽
-    //!
-    fn get_progress(&mut self, player_name: &str) -> Progress {
-        // TODO: エラーハンドリング
-        let client = Client::open(&self.redis_uri[..]).unwrap();
-        let mut con = client.get_connection().unwrap();
-        let get_result: RedisResult<String> = con.hget(DB_HATAGENPEI_PROGRESS_KEY, player_name);
-        let progress;
-
-        // スコアを json 形式で取り出す
-        match get_result {
-            Ok(json) => {
-                progress = serde_json::from_str(&json[..]).unwrap();
-            }
-            // 取り出せなかった場合、insert しておく
-            Err(_) => {
-                progress = Progress::new(
-                    &Player::new(
-                        player_name.to_string(),
-                        Score {
-                            score: HATAGENPEI_INIT_SCORE,
-                            matoi: true,
-                        },
-                        Score {
-                            score: 0,
-                            matoi: false,
-                        },
-                    ),
-                    &Player::new(
-                        self.bot_name.clone(),
-                        Score {
-                            score: HATAGENPEI_INIT_SCORE,
-                            matoi: true,
-                        },
-                        Score {
-                            score: 0,
-                            matoi: false,
-                        },
-                    ),
-                );
-
-                if self.insert_progress(&progress) {
-                } else {
-                    // TODO insert_progress に失敗した場合はエラー扱いにしたい
-                }
-            }
-        }
-        return progress;
-    }
-
-    fn insert_progress(&mut self, progress: &Progress) -> bool {
-        let client = Client::open(&self.redis_uri[..]).unwrap();
-        let mut con = client.get_connection().unwrap();
-        let s = serde_json::to_string(progress).unwrap();
-        let _: () = con
-            .hset(DB_HATAGENPEI_PROGRESS_KEY, progress.user.name.clone(), s)
-            .unwrap();
-        return true;
-    }
-
-    fn delete_progress(&mut self, player_name: &str) -> bool {
-        let client = Client::open(&self.redis_uri[..]).unwrap();
-        let mut con = client.get_connection().unwrap();
-        let _res: i32 = con.hdel(DB_HATAGENPEI_PROGRESS_KEY, player_name).unwrap();
-        return true;
-    }
-    fn update_winloses(&mut self, player_name: &str, is_player_win: bool) -> bool {
-        // まずスコアテーブルを取り出し、値を確認する
-        let client = Client::open(&self.redis_uri[..]).unwrap();
-        let mut con = client.get_connection().unwrap();
-
-        let get_result: RedisResult<String> = con.hget(DB_HATAGENPEI_WINLOSES_KEY, player_name);
-
-        let mut win_lose = match get_result {
-            Ok(json) => serde_json::from_str(&json[..]).unwrap(),
-            // 取り出せなかった場合、insert しておく
-            Err(_) => WinLose::new(0, 0, player_name),
-        };
-
-        if is_player_win {
-            win_lose.win += 1;
-        } else {
-            win_lose.lose += 1;
-        }
-
-        // 勝敗テーブルに勝敗を書き込み
-        let s = serde_json::to_string(&win_lose).unwrap();
-        let _: () = con
-            .hset(DB_HATAGENPEI_WINLOSES_KEY, player_name, s)
-            .unwrap();
-
-        return true;
-    }
-
-    fn get_win_loses(&self) -> Vec<WinLose> {
-        let mut res = vec![];
-        let client = Client::open(&self.redis_uri[..]).unwrap();
-        let mut con = client.get_connection().unwrap();
-
-        let btreemap_result: RedisResult<BTreeMap<String, String>> =
-            con.hgetall(DB_HATAGENPEI_WINLOSES_KEY);
-
-        match btreemap_result {
-            Ok(win_lose_map) => {
-                for (_, jsonstr) in win_lose_map.iter() {
-                    let win_lose: WinLose = serde_json::from_str(jsonstr).unwrap();
-                    res.push(win_lose);
-                }
-            }
-            Err(_) => {
-                // key が取り出せない場合は、何もしない
-            }
-        }
-        return res;
-    }
-}
-
 impl ScoreOperation for ScoresInPostgre {
-    fn get_progress(&mut self, player_name: &str) -> Progress {
+    fn get_progress(&mut self, player_name: &str) -> Option<Progress> {
         // postgre に接続
-        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None).expect("failed to connect postgres");
-
+        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
+            .expect("failed to connect postgres");
         // 見つからなかった場合は、insert を実行する
         let select_query = format!(
             "SELECT name, data FROM {} where name = $1",
             DB_HATAGENPEI_PROGRESS_KEY
         );
-        let res = conn.query(&select_query[..], &[&player_name]).expect("failed to select query for get_progress");
+        let res = conn
+            .query(&select_query[..], &[&player_name])
+            .expect("failed to select query for get_progress");
 
         if res.len() == 0 {
-            let progress = Progress::new(
-                &Player::new(
-                    player_name.to_string(),
-                    Score {
-                        score: HATAGENPEI_INIT_SCORE,
-                        matoi: true,
-                    },
-                    Score {
-                        score: 0,
-                        matoi: false,
-                    },
-                ),
-                &Player::new(
-                    self.bot_name.clone(),
-                    Score {
-                        score: HATAGENPEI_INIT_SCORE,
-                        matoi: true,
-                    },
-                    Score {
-                        score: 0,
-                        matoi: false,
-                    },
-                ),
-            );
-            self.insert_progress(&progress);
-            return progress;
-        } else {
-            // 複数ある場合でも、1つだけ返す
-            let r = res.get(0);
-            let data: String = r.get(1);
-            let progress = serde_json::from_str(&data[..]).expect("failed to serde_json::from_str");
-            return progress;
+            return None;
         }
+
+        // 複数ある場合でも、1つだけ返す
+        let r = res.get(0);
+        let data: String = r.get(1);
+        let progress = serde_json::from_str(&data[..]).expect("failed to serde_json::from_str");
+        return Some(progress);
     }
 
     fn insert_progress(&mut self, progress: &Progress) -> bool {
         // postgre に接続
-        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None).expect("failed to connect postgres");
+        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
+            .expect("failed to connect postgres");
 
         // すでに要素が存在している場合は、SQL update
         // そうでない場合は SQL insert を行う
@@ -418,7 +235,8 @@ impl ScoreOperation for ScoresInPostgre {
 
     fn delete_progress(&mut self, player_name: &str) -> bool {
         // postgre に接続
-        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None).expect("failed to connect postgres");
+        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
+            .expect("failed to connect postgres");
         let delete_query = format!("DELETE FROM {} where name = $1", DB_HATAGENPEI_PROGRESS_KEY);
         conn.execute(&delete_query[..], &[&player_name])
             .expect("failed to delete query for delete_progress");
@@ -427,16 +245,17 @@ impl ScoreOperation for ScoresInPostgre {
     }
     fn update_winloses(&mut self, player_name: &str, is_player_win: bool) -> bool {
         // postgre に接続
-        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None).expect("failed to connect postgres");
+        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
+            .expect("failed to connect postgres");
 
         // 勝敗を取得
         let select_query = format!(
             "SELECT name, data, data FROM {} where name = $1",
             DB_HATAGENPEI_WINLOSES_KEY
         );
-        let res = conn.query(&select_query[..], &[&player_name])
+        let res = conn
+            .query(&select_query[..], &[&player_name])
             .expect("failed to select query for update_winloses");
-
 
         let mut win_lose = if res.len() == 0 {
             WinLose::new(0, 0, player_name)
@@ -454,14 +273,14 @@ impl ScoreOperation for ScoresInPostgre {
 
         let s = serde_json::to_string(&win_lose).expect("failed to serde_json::to_string");
 
-        // insert 
-       if res.len() == 0 {
+        // insert
+        if res.len() == 0 {
             let insert_query = format!(
                 "INSERT INTO {} (name, data) VALUES ($1, $2)",
                 DB_HATAGENPEI_WINLOSES_KEY
             );
             conn.execute(&insert_query[..], &[&player_name, &s])
-               .expect("failed to insert query for update_winloses");
+                .expect("failed to insert query for update_winloses");
         }
         // update
         else {
@@ -478,14 +297,16 @@ impl ScoreOperation for ScoresInPostgre {
 
     fn get_win_loses(&self) -> Vec<WinLose> {
         let mut res = vec![];
-        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None).expect("failed to connect postgres");
+        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
+            .expect("failed to connect postgres");
 
         // 勝敗を取得
         let select_query = format!(
             "SELECT name, data, data FROM {}",
             DB_HATAGENPEI_WINLOSES_KEY
         );
-        let query_result = conn.query(&select_query[..], &[])
+        let query_result = conn
+            .query(&select_query[..], &[])
             .expect("failed to select query for get_win_loses");
 
         for row in &query_result {
@@ -507,7 +328,6 @@ pub struct StepResult {
 impl HatagenpeiController {
     pub fn new(data_store: &DataStore, bot_name: &String) -> HatagenpeiController {
         let score_operator: Box<dyn ScoreOperation> = match data_store {
-            DataStore::Redis { uri } => Box::new(ScoresInRedis::new(uri, bot_name.clone())),
             DataStore::Postgre { uri } => Box::new(ScoresInPostgre::new(uri, bot_name.clone())),
             DataStore::OnMemory => Box::new(ScoresInMap::new(bot_name.clone())),
         };
@@ -527,7 +347,40 @@ impl HatagenpeiController {
     pub fn step(&mut self, player_name: &str) -> StepResult {
         let seed = rand::random::<u64>();
         // 現在の状態でゲームを行う
-        let progress = self.score_operator.get_progress(player_name);
+        let progress = match self.score_operator.get_progress(player_name) {
+            Some(progress) => progress,
+            None => {
+                // 初期 progress を作成
+                let progress = Progress::new(
+                    &Player::new(
+                        player_name.to_string(),
+                        Score {
+                            score: HATAGENPEI_INIT_SCORE,
+                            matoi: true,
+                        },
+                        Score {
+                            score: 0,
+                            matoi: false,
+                        },
+                    ),
+                    &Player::new(
+                        self.bot_name.clone(),
+                        Score {
+                            score: HATAGENPEI_INIT_SCORE,
+                            matoi: true,
+                        },
+                        Score {
+                            score: 0,
+                            matoi: false,
+                        },
+                    ),
+                );
+                // 登録
+                self.score_operator.insert_progress(&progress);
+                progress
+            }
+        };
+
         let mut game = Hatagenpei::new(progress.user, progress.bot, PlayerTurn::Player1, seed);
         // game.next() の戻り値から、ゲームログ文字列を構築する
         let mut logstr = vec![];
