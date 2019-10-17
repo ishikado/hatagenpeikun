@@ -76,26 +76,23 @@ trait ScoreOperation {
 struct ScoresInMap {
     score_map: BTreeMap<String, Progress>,
     winlose_map: BTreeMap<String, WinLose>,
-    bot_name: String,
 }
 
 struct ScoresInPostgre {
     postgre_uri: String,
-    bot_name: String,
 }
 
 impl ScoresInMap {
-    pub fn new(bot_name: String) -> ScoresInMap {
+    pub fn new() -> ScoresInMap {
         return ScoresInMap {
             score_map: BTreeMap::new(),
             winlose_map: BTreeMap::new(),
-            bot_name: bot_name,
         };
     }
 }
 
 impl ScoresInPostgre {
-    pub fn new(postgre_uri: &String, bot_name: String) -> ScoresInPostgre {
+    pub fn new(postgre_uri: &String) -> ScoresInPostgre {
         // postgre に接続
         let conn = Connection::connect(&postgre_uri[..], TlsMode::None)
             .expect("failed to connect postgres");
@@ -124,7 +121,6 @@ impl ScoresInPostgre {
 
         return ScoresInPostgre {
             postgre_uri: postgre_uri.clone(),
-            bot_name: bot_name,
         };
     }
 }
@@ -330,8 +326,8 @@ pub struct StepResult {
 impl HatagenpeiController {
     pub fn new(data_store: &DataStore, bot_name: &String) -> HatagenpeiController {
         let score_operator: Box<dyn ScoreOperation> = match data_store {
-            DataStore::Postgre { uri } => Box::new(ScoresInPostgre::new(uri, bot_name.clone())),
-            DataStore::OnMemory => Box::new(ScoresInMap::new(bot_name.clone())),
+            DataStore::Postgre { uri } => Box::new(ScoresInPostgre::new(uri)),
+            DataStore::OnMemory => Box::new(ScoresInMap::new()),
         };
 
         return HatagenpeiController {
