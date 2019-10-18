@@ -24,13 +24,11 @@ pub fn on_hatagenpei(
 
             let prefix = if res.is_start {
                 "旗源平を始めるげん!\n\n"
-            }
-            else{
+            } else {
                 ""
             };
 
             let joined_logs = [prefix, "```", &res.logs.join("\n"), "```"].concat();
-
 
             let _ = cli.sender().send_message(chid, &joined_logs);
         }

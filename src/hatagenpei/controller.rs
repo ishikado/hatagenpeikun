@@ -1,21 +1,12 @@
 //!
 //! 旗源平をbotで実現するモジュール
 //!
-extern crate postgres;
-extern crate serde;
-extern crate serde_derive;
-extern crate serde_json;
-
-use serde::{Deserialize, Serialize};
-
-use std::collections::BTreeMap;
 
 use super::game::*;
-use postgres::{Connection, TlsMode};
+use super::score_operator::map::*;
+use super::score_operator::postgre::*;
+use super::score_operator::*;
 
-// TODO: このあたりの設定は https://docs.rs/config/0.9.3/config/ を使って、Settings.toml から指定できるようにしたい
-const DB_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
-const DB_HATAGENPEI_WINLOSES_KEY: &str = "hatagenpei_winloses";
 const HATAGENPEI_INIT_SCORE: i32 = 29; // 小旗が両替できるように10x(x>=0) + 9 本持ちで開始すること
 
 pub enum DataStore {
@@ -23,295 +14,9 @@ pub enum DataStore {
     OnMemory,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct WinLose {
-    pub name: String,
-    pub win: i32,
-    pub lose: i32,
-}
-
-impl WinLose {
-    fn new(win: i32, lose: i32, name: &str) -> WinLose {
-        return WinLose {
-            win: win,
-            lose: lose,
-            name: name.to_string(),
-        };
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-struct Progress {
-    user: Player,
-    bot: Player,
-}
-
-impl Progress {
-    fn new(user: &Player, bot: &Player) -> Progress {
-        return Progress {
-            user: user.clone(),
-            bot: bot.clone(),
-        };
-    }
-}
-
 pub struct HatagenpeiController {
     bot_name: String,
     score_operator: Box<dyn ScoreOperation>,
-}
-
-trait ScoreOperation {
-    /// player_name で指定されたプレイヤーの情報を取得する。スコアがまだなかった場合は、None になる
-    fn get_progress(&mut self, player_name: &str) -> Option<Progress>;
-    /// progress で指定されたプレイヤーの情報を登録する。すでに登録済みの場合は、上書きされる
-    fn insert_progress(&mut self, progress: &Progress) -> bool;
-    /// player_name で指定されたプレイヤーの情報を削除する。
-    fn delete_progress(&mut self, player_name: &str) -> bool;
-    /// player_name で指定されたプレイヤーの勝敗を登録する。
-    fn update_winloses(&mut self, player_name: &str, is_player_win: bool) -> bool;
-    /// 過去の旗源平の勝敗記録を表示する
-    fn get_win_loses(&self) -> Vec<WinLose>;
-}
-
-struct ScoresInMap {
-    score_map: BTreeMap<String, Progress>,
-    winlose_map: BTreeMap<String, WinLose>,
-}
-
-struct ScoresInPostgre {
-    postgre_uri: String,
-}
-
-impl ScoresInMap {
-    pub fn new() -> ScoresInMap {
-        return ScoresInMap {
-            score_map: BTreeMap::new(),
-            winlose_map: BTreeMap::new(),
-        };
-    }
-}
-
-impl ScoresInPostgre {
-    pub fn new(postgre_uri: &String) -> ScoresInPostgre {
-        // postgre に接続
-        let conn = Connection::connect(&postgre_uri[..], TlsMode::None)
-            .expect("failed to connect postgres");
-
-        // progress管理テーブル作成
-        let create_progress_table_query = format!(
-            "CREATE TABLE IF NOT EXISTS {} (
-                    name            VARCHAR NOT NULL,
-                    data            VARCHAR NOT NULL
-                  )",
-            DB_HATAGENPEI_PROGRESS_KEY
-        );
-        conn.execute(&create_progress_table_query[..], &[])
-            .expect("failed to create progress table");
-
-        // winlose 管理テーブル作成
-        let create_winlose_table_query = format!(
-            "CREATE TABLE IF NOT EXISTS {} (
-                    name            VARCHAR NOT NULL,
-                    data            VARCHAR NOT NULL
-                  )",
-            DB_HATAGENPEI_WINLOSES_KEY
-        );
-        conn.execute(&create_winlose_table_query[..], &[])
-            .expect("failed to create winlose table");
-
-        return ScoresInPostgre {
-            postgre_uri: postgre_uri.clone(),
-        };
-    }
-}
-
-impl ScoreOperation for ScoresInMap {
-    fn get_progress(&mut self, player_name: &str) -> Option<Progress> {
-        if let Some(progress) = self.score_map.get(player_name) {
-            return Some(progress.clone());
-        } else {
-            return None;
-        }
-    }
-
-    fn insert_progress(&mut self, progress: &Progress) -> bool {
-        self.score_map
-            .insert(progress.user.name.to_string(), progress.clone());
-        return true;
-    }
-    fn delete_progress(&mut self, player_name: &str) -> bool {
-        self.score_map.remove(player_name);
-        return true;
-    }
-    fn update_winloses(&mut self, player_name: &str, is_player_win: bool) -> bool {
-        let mut win_lose = match self.winlose_map.get(player_name) {
-            Some(win_lose) => win_lose.clone(),
-            None => WinLose::new(0, 0, player_name),
-        };
-
-        if is_player_win {
-            win_lose.win += 1;
-        } else {
-            win_lose.lose += 1;
-        }
-
-        self.winlose_map.insert(player_name.to_string(), win_lose);
-
-        return true;
-    }
-    fn get_win_loses(&self) -> Vec<WinLose> {
-        let mut res = vec![];
-        for (_, win_lose) in self.winlose_map.iter() {
-            res.push(win_lose.clone());
-        }
-        return res;
-    }
-}
-
-impl ScoreOperation for ScoresInPostgre {
-    fn get_progress(&mut self, player_name: &str) -> Option<Progress> {
-        // postgre に接続
-        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
-            .expect("failed to connect postgres");
-        // 見つからなかった場合は、insert を実行する
-        let select_query = format!(
-            "SELECT name, data FROM {} where name = $1",
-            DB_HATAGENPEI_PROGRESS_KEY
-        );
-        let res = conn
-            .query(&select_query[..], &[&player_name])
-            .expect("failed to select query for get_progress");
-
-        if res.len() == 0 {
-            return None;
-        }
-
-        // 複数ある場合でも、1つだけ返す
-        let r = res.get(0);
-        let data: String = r.get(1);
-        let progress = serde_json::from_str(&data[..]).expect("failed to serde_json::from_str");
-        return Some(progress);
-    }
-
-    fn insert_progress(&mut self, progress: &Progress) -> bool {
-        // postgre に接続
-        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
-            .expect("failed to connect postgres");
-
-        // すでに要素が存在している場合は、SQL update
-        // そうでない場合は SQL insert を行う
-        let select_query = format!(
-            "SELECT name, data FROM {} where name = $1",
-            DB_HATAGENPEI_PROGRESS_KEY
-        );
-        let res = conn
-            .query(&select_query[..], &[&&progress.user.name[..]])
-            .expect("failed to select query for insert_progress");
-
-        let jsonstr = serde_json::to_string(&progress).expect("failed to serde_json::to_string");
-        if res.len() == 0 {
-            // insert
-            let insert_query = format!(
-                "INSERT INTO {} (name, data) VALUES ($1, $2)",
-                DB_HATAGENPEI_PROGRESS_KEY
-            );
-            conn.execute(&insert_query[..], &[&&progress.user.name[..], &jsonstr])
-                .expect("failed to insert query for insert_progress");
-        } else {
-            // update
-            let update_query = format!(
-                "UPDATE {} SET data = $1 WHERE name = $2",
-                DB_HATAGENPEI_PROGRESS_KEY
-            );
-            conn.execute(&update_query[..], &[&jsonstr, &&progress.user.name[..]])
-                .expect("failed to update query for insert_progress");
-        }
-        return true;
-    }
-
-    fn delete_progress(&mut self, player_name: &str) -> bool {
-        // postgre に接続
-        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
-            .expect("failed to connect postgres");
-        let delete_query = format!("DELETE FROM {} where name = $1", DB_HATAGENPEI_PROGRESS_KEY);
-        conn.execute(&delete_query[..], &[&player_name])
-            .expect("failed to delete query for delete_progress");
-
-        return true;
-    }
-    fn update_winloses(&mut self, player_name: &str, is_player_win: bool) -> bool {
-        // postgre に接続
-        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
-            .expect("failed to connect postgres");
-
-        // 勝敗を取得
-        let select_query = format!(
-            "SELECT name, data, data FROM {} where name = $1",
-            DB_HATAGENPEI_WINLOSES_KEY
-        );
-        let res = conn
-            .query(&select_query[..], &[&player_name])
-            .expect("failed to select query for update_winloses");
-
-        let mut win_lose = if res.len() == 0 {
-            WinLose::new(0, 0, player_name)
-        } else {
-            let r = res.get(0);
-            let data: String = r.get(1);
-            serde_json::from_str(&data[..]).expect("failed to serde_json::from_str")
-        };
-
-        if is_player_win {
-            win_lose.win += 1;
-        } else {
-            win_lose.lose += 1;
-        }
-
-        let s = serde_json::to_string(&win_lose).expect("failed to serde_json::to_string");
-
-        // insert
-        if res.len() == 0 {
-            let insert_query = format!(
-                "INSERT INTO {} (name, data) VALUES ($1, $2)",
-                DB_HATAGENPEI_WINLOSES_KEY
-            );
-            conn.execute(&insert_query[..], &[&player_name, &s])
-                .expect("failed to insert query for update_winloses");
-        }
-        // update
-        else {
-            let update_query = format!(
-                "UPDATE {} SET data = $1 WHERE name = $2",
-                DB_HATAGENPEI_WINLOSES_KEY
-            );
-            conn.execute(&update_query[..], &[&s, &player_name])
-                .expect("failed to update query for update_winloses");
-        }
-
-        return true;
-    }
-
-    fn get_win_loses(&self) -> Vec<WinLose> {
-        let mut res = vec![];
-        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
-            .expect("failed to connect postgres");
-
-        // 勝敗を取得
-        let select_query = format!(
-            "SELECT name, data, data FROM {}",
-            DB_HATAGENPEI_WINLOSES_KEY
-        );
-        let query_result = conn
-            .query(&select_query[..], &[])
-            .expect("failed to select query for get_win_loses");
-
-        for row in &query_result {
-            let data: String = row.get(1);
-            let win_lose = serde_json::from_str(&data[..]).expect("failed to serde_json::from_str");
-            res.push(win_lose);
-        }
-        return res;
-    }
 }
 
 pub struct StepResult {
@@ -320,10 +25,11 @@ pub struct StepResult {
     /// ゲームが終了したかどうか
     pub is_over: bool,
     /// この step 呼び出しで、ゲームが開始したかどうか
-    pub is_start: bool
+    pub is_start: bool,
 }
 
 impl HatagenpeiController {
+    // TODO: score_operator は controller に直接渡せるようにしたい（& score_operator の factory も作りたい ）
     pub fn new(data_store: &DataStore, bot_name: &String) -> HatagenpeiController {
         let score_operator: Box<dyn ScoreOperation> = match data_store {
             DataStore::Postgre { uri } => Box::new(ScoresInPostgre::new(uri)),
@@ -454,7 +160,7 @@ impl HatagenpeiController {
         return StepResult {
             logs: logstr,
             is_over: is_over,
-            is_start: is_start
+            is_start: is_start,
         };
     }
 }
