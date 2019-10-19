@@ -9,6 +9,16 @@ use super::score_operator::*;
 
 const HATAGENPEI_INIT_SCORE: i32 = 29; // 小旗が両替できるように10x(x>=0) + 9 本持ちで開始すること
 
+
+pub fn factor_operater( data_store : &DataStore ) ->  Box<dyn ScoreOperation> {
+    let score_operator: Box<dyn ScoreOperation> = match data_store {
+        DataStore::Postgre { uri } => Box::new(ScoresInPostgre::new(&uri)),
+        DataStore::OnMemory => Box::new(ScoresInMap::new()),
+    };
+    return score_operator;
+}
+
+
 pub enum DataStore {
     Postgre { uri: String },
     OnMemory,
@@ -29,16 +39,10 @@ pub struct StepResult {
 }
 
 impl HatagenpeiController {
-    // TODO: score_operator は controller に直接渡せるようにしたい（& score_operator の factory も作りたい ）
-    pub fn new(data_store: &DataStore, bot_name: &String) -> HatagenpeiController {
-        let score_operator: Box<dyn ScoreOperation> = match data_store {
-            DataStore::Postgre { uri } => Box::new(ScoresInPostgre::new(uri)),
-            DataStore::OnMemory => Box::new(ScoresInMap::new()),
-        };
-
+    pub fn new(operator : Box<dyn ScoreOperation>, bot_name: &String) -> HatagenpeiController {
         return HatagenpeiController {
             bot_name: bot_name.clone(),
-            score_operator: score_operator,
+            score_operator: operator,
         };
     }
 

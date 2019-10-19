@@ -274,7 +274,7 @@ impl slack::EventHandler for MyHandler {
         self.myuid = uid;
         self.myname = myname.clone();
         self.hatagenpei_controller =
-            Some(HatagenpeiController::new(&self.data_store, &self.myname));
+            Some(HatagenpeiController::new(factor_operater(&self.data_store), &self.myname));
 
         // Send a message over the real time api websocket
     }
