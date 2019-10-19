@@ -15,7 +15,7 @@ impl ScoresInMap {
     }
 }
 
-impl ScoreOperation for ScoresInMap {
+impl ScoreOperator for ScoresInMap {
     fn get_progress(&mut self, player_name: &str) -> Option<Progress> {
         if let Some(progress) = self.score_map.get(player_name) {
             return Some(progress.clone());

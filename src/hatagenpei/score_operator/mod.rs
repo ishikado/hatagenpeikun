@@ -36,7 +36,7 @@ impl WinLose {
     }
 }
 
-pub trait ScoreOperation {
+pub trait ScoreOperator {
     /// player_name で指定されたプレイヤーの情報を取得する。スコアがまだなかった場合は、None になる
     fn get_progress(&mut self, player_name: &str) -> Option<Progress>;
     /// progress で指定されたプレイヤーの情報を登録する。すでに登録済みの場合は、上書きされる

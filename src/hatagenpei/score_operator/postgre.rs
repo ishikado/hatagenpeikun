@@ -44,7 +44,7 @@ impl ScoresInPostgre {
     }
 }
 
-impl ScoreOperation for ScoresInPostgre {
+impl ScoreOperator for ScoresInPostgre {
     fn get_progress(&mut self, player_name: &str) -> Option<Progress> {
         // postgre に接続
         let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
