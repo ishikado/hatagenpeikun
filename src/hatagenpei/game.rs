@@ -290,6 +290,9 @@ impl Hatagenpei {
 
                         commands.push(cmd.clone());
 
+
+                        // TODO: スコア計算は関数に切り出して、テストしやすいようにしておきたい
+
                         // 旗を返すプレイヤーを決定
                         let (send_player, got_player) = if (cmd.point > 0) as i32
                             ^ (self.turn == PlayerTurn::Player1) as i32
