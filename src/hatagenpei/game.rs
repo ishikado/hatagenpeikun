@@ -300,9 +300,14 @@ impl Hatagenpei {
                             (&mut self.player2, &mut self.player1)
                         };
 
-                        {
+                        if cmd.point < 0 {
+                            // send_player が取った got_player の旗を、got_player に返す
+                            let v = std::cmp::min(cmd.point.abs(), send_player.got_score.score);
+                            send_player.got_score.score -= v;
+                            got_player.my_score.score += v;
+                        }
+                        else{
                             // TOOD: このあたりのやり取りをもうすこしきれいにしたい
-
                             // まといのやり取り
                             if cmd.point.abs() > send_player.my_score.score {
                                 send_player.my_score.matoi = false;
