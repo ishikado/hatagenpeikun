@@ -9,6 +9,10 @@ $ cargo build
 ```
 
 ## 起動方法
+
+NOTICE && TODO: 起動方法が変わっているので、書き直す。 
+( Cargo.toml で [[bin]] を複数定義（サンプル行 && 本実行 ）しているため、それぞれ起動方法が存在する。） 
+
 ```
 $ cargo run -- $slack_api_token -l $log_level
 ```
