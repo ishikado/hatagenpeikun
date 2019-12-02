@@ -46,7 +46,16 @@ impl HatagenpeiController {
 
     /// 過去の勝敗を取得
     pub fn get_win_loses(&self) -> Vec<WinLose> {
-        return self.score_operator.get_win_loses().clone();
+        let mut res = self.score_operator.get_win_loses().clone();
+        // hatagenpeikun の勝敗を追加で登録する
+        let mut hatagenpeikun_win = 0;
+        let mut hatagenpeikun_lose = 0;
+        for r in &res {
+            hatagenpeikun_lose += r.win;
+            hatagenpeikun_win += r.lose;
+        }
+        res.push(WinLose::new(hatagenpeikun_win, hatagenpeikun_lose, "hatagenpeikun"));
+        return res;
     }
 
     /// 2step旗源平の実行を行う（player -> bot）
