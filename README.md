@@ -13,9 +13,17 @@ $ cargo build
 NOTICE && TODO: 起動方法が変わっているので、書き直す。 
 ( Cargo.toml で [[bin]] を複数定義（サンプル行 && 本実行 ）しているため、それぞれ起動方法が存在する。） 
 
+### 本起動
 ```
-$ cargo run -- $slack_api_token -l $log_level
+$ cargo run --bin hatagenpeikun ${slack_api_token} -l info
 ```
+
+### 動作確認用起動
+```
+$ cargo run --bin hatagenpei_sample
+```
+動作確認向けに、自動的に旗源平のシミュレーションが実行される。
+hatagenpeikun は、旗源平以外の機能も持っているので、テストに組み込んだほうがいいかもしれない。
 
 
 # Dockerfile
