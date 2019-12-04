@@ -54,7 +54,7 @@ impl HatagenpeiController {
             hatagenpeikun_lose += r.win;
             hatagenpeikun_win += r.lose;
         }
-        res.push(WinLose::new(hatagenpeikun_win, hatagenpeikun_lose, "hatagenpeikun"));
+        res.push(WinLose::new(hatagenpeikun_win, hatagenpeikun_lose, &self.bot_name));
         return res;
     }
 
