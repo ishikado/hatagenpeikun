@@ -60,13 +60,11 @@ $ git commit -m "add heroku.yml"
 まだ heroku に application を作成していない場合、以下のコマンドで application を作成する。
 ```
 $ heroku create $app_name
-
 ```
 
 次に、stack に container を指定する。
 ```
 $ heroku stack:set container
-
 ```
 
 次に、herokuのリモートリポジトリに、push する。
