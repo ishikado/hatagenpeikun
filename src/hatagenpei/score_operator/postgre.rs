@@ -4,17 +4,25 @@ use super::*;
 const DB_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
 const DB_HATAGENPEI_WINLOSES_KEY: &str = "hatagenpei_winloses";
 
-use postgres::{Connection, TlsMode};
+use postgres::{Client};
+use openssl::ssl::{SslConnector, SslMethod};
+use postgres_openssl::MakeTlsConnector;
 
 pub struct ScoresInPostgre {
     postgre_uri: String,
 }
 
 impl ScoresInPostgre {
+    fn make_client(postgre_uri :&str) -> Client {
+        let builder = SslConnector::builder(SslMethod::tls()).expect("failed to call SslConnector::builder");
+        let connector = MakeTlsConnector::new(builder.build());
+        let client =
+            Client::connect(&postgre_uri[..], connector).expect("failed to connect postgres");
+        return client
+    }
     pub fn new(postgre_uri: &String) -> ScoresInPostgre {
         // postgre に接続
-        let conn = Connection::connect(&postgre_uri[..], TlsMode::None)
-            .expect("failed to connect postgres");
+        let mut client = Self::make_client(&postgre_uri[..]);
 
         // progress管理テーブル作成
         let create_progress_table_query = format!(
@@ -24,7 +32,8 @@ impl ScoresInPostgre {
                   )",
             DB_HATAGENPEI_PROGRESS_KEY
         );
-        conn.execute(&create_progress_table_query[..], &[])
+        client
+            .execute(&create_progress_table_query[..], &[])
             .expect("failed to create progress table");
 
         // winlose 管理テーブル作成
@@ -35,26 +44,27 @@ impl ScoresInPostgre {
                   )",
             DB_HATAGENPEI_WINLOSES_KEY
         );
-        conn.execute(&create_winlose_table_query[..], &[])
+        client
+            .execute(&create_winlose_table_query[..], &[])
             .expect("failed to create winlose table");
 
         return ScoresInPostgre {
             postgre_uri: postgre_uri.clone(),
         };
     }
+
 }
 
 impl ScoreOperator for ScoresInPostgre {
     fn get_progress(&mut self, player_name: &str) -> Option<Progress> {
         // postgre に接続
-        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
-            .expect("failed to connect postgres");
+        let mut client = Self::make_client(&self.postgre_uri[..]);
         // 見つからなかった場合は、insert を実行する
         let select_query = format!(
             "SELECT name, data FROM {} where name = $1",
             DB_HATAGENPEI_PROGRESS_KEY
         );
-        let res = conn
+        let res = client
             .query(&select_query[..], &[&player_name])
             .expect("failed to select query for get_progress");
 
@@ -64,15 +74,14 @@ impl ScoreOperator for ScoresInPostgre {
 
         // 複数ある場合でも、1つだけ返す
         let r = res.get(0);
-        let data: String = r.get(1);
+        let data: String = r.expect("failed to get data in HATAGENPEI_PROGRESS").get(1);
         let progress = serde_json::from_str(&data[..]).expect("failed to serde_json::from_str");
         return Some(progress);
     }
 
     fn insert_progress(&mut self, progress: &Progress) -> bool {
         // postgre に接続
-        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
-            .expect("failed to connect postgres");
+        let mut client = Self::make_client(&self.postgre_uri[..]);
 
         // すでに要素が存在している場合は、SQL update
         // そうでない場合は SQL insert を行う
@@ -80,7 +89,7 @@ impl ScoreOperator for ScoresInPostgre {
             "SELECT name, data FROM {} where name = $1",
             DB_HATAGENPEI_PROGRESS_KEY
         );
-        let res = conn
+        let res = client
             .query(&select_query[..], &[&&progress.user.name[..]])
             .expect("failed to select query for insert_progress");
 
@@ -91,7 +100,8 @@ impl ScoreOperator for ScoresInPostgre {
                 "INSERT INTO {} (name, data) VALUES ($1, $2)",
                 DB_HATAGENPEI_PROGRESS_KEY
             );
-            conn.execute(&insert_query[..], &[&&progress.user.name[..], &jsonstr])
+            client
+                .execute(&insert_query[..], &[&&progress.user.name[..], &jsonstr])
                 .expect("failed to insert query for insert_progress");
         } else {
             // update
@@ -99,7 +109,8 @@ impl ScoreOperator for ScoresInPostgre {
                 "UPDATE {} SET data = $1 WHERE name = $2",
                 DB_HATAGENPEI_PROGRESS_KEY
             );
-            conn.execute(&update_query[..], &[&jsonstr, &&progress.user.name[..]])
+            client
+                .execute(&update_query[..], &[&jsonstr, &&progress.user.name[..]])
                 .expect("failed to update query for insert_progress");
         }
         return true;
@@ -107,25 +118,24 @@ impl ScoreOperator for ScoresInPostgre {
 
     fn delete_progress(&mut self, player_name: &str) -> bool {
         // postgre に接続
-        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
-            .expect("failed to connect postgres");
+        let mut client = Self::make_client(&self.postgre_uri[..]);
         let delete_query = format!("DELETE FROM {} where name = $1", DB_HATAGENPEI_PROGRESS_KEY);
-        conn.execute(&delete_query[..], &[&player_name])
+        client
+            .execute(&delete_query[..], &[&player_name])
             .expect("failed to delete query for delete_progress");
 
         return true;
     }
     fn update_winloses(&mut self, player_name: &str, is_player_win: bool) -> bool {
         // postgre に接続
-        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
-            .expect("failed to connect postgres");
+        let mut client = Self::make_client(&self.postgre_uri[..]);
 
         // 勝敗を取得
         let select_query = format!(
             "SELECT name, data, data FROM {} where name = $1",
             DB_HATAGENPEI_WINLOSES_KEY
         );
-        let res = conn
+        let res = client
             .query(&select_query[..], &[&player_name])
             .expect("failed to select query for update_winloses");
 
@@ -133,7 +143,7 @@ impl ScoreOperator for ScoresInPostgre {
             WinLose::new(0, 0, player_name)
         } else {
             let r = res.get(0);
-            let data: String = r.get(1);
+            let data: String = r.expect("failed to get data in HATAGENPEI_WINLOSES").get(1);
             serde_json::from_str(&data[..]).expect("failed to serde_json::from_str")
         };
 
@@ -151,7 +161,8 @@ impl ScoreOperator for ScoresInPostgre {
                 "INSERT INTO {} (name, data) VALUES ($1, $2)",
                 DB_HATAGENPEI_WINLOSES_KEY
             );
-            conn.execute(&insert_query[..], &[&player_name, &s])
+            client
+                .execute(&insert_query[..], &[&player_name, &s])
                 .expect("failed to insert query for update_winloses");
         }
         // update
@@ -160,7 +171,8 @@ impl ScoreOperator for ScoresInPostgre {
                 "UPDATE {} SET data = $1 WHERE name = $2",
                 DB_HATAGENPEI_WINLOSES_KEY
             );
-            conn.execute(&update_query[..], &[&s, &player_name])
+            client
+                .execute(&update_query[..], &[&s, &player_name])
                 .expect("failed to update query for update_winloses");
         }
 
@@ -169,15 +181,14 @@ impl ScoreOperator for ScoresInPostgre {
 
     fn get_win_loses(&self) -> Vec<WinLose> {
         let mut res = vec![];
-        let conn = Connection::connect(&self.postgre_uri[..], TlsMode::None)
-            .expect("failed to connect postgres");
+        let mut client = Self::make_client(&self.postgre_uri[..]);
 
         // 勝敗を取得
         let select_query = format!(
             "SELECT name, data, data FROM {}",
             DB_HATAGENPEI_WINLOSES_KEY
         );
-        let query_result = conn
+        let query_result = client
             .query(&select_query[..], &[])
             .expect("failed to select query for get_win_loses");
 

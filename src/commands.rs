@@ -76,10 +76,7 @@ pub fn on_hatagenpei_winloses(
 pub fn on_purururu(cli: &RtmClient, chid: &String, text: &String) -> Result<(), failure::Error> {
     info!("called on_purururu, text = {}", text);
     if let Some(_) = text.find("ﾌﾟﾙﾙﾙ") {
-        let _ = cli.sender().send_message(
-            chid,
-            "ﾌﾟﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙ！",
-        );
+        let _ = cli.sender().send_message(chid, "ﾌﾟﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙﾙ！");
     }
     Ok(())
 }

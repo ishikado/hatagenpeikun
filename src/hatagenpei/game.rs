@@ -290,7 +290,6 @@ impl Hatagenpei {
 
                         commands.push(cmd.clone());
 
-
                         // TODO: スコア計算は関数に切り出して、テストしやすいようにしておきたい
 
                         // 旗を返すプレイヤーを決定
@@ -308,8 +307,7 @@ impl Hatagenpei {
                             let v = std::cmp::min(cmd.point.abs(), send_player.got_score.score);
                             send_player.got_score.score -= v;
                             got_player.my_score.score += v;
-                        }
-                        else{
+                        } else {
                             // TOOD: このあたりのやり取りをもうすこしきれいにしたい
                             // まといのやり取り
                             if cmd.point.abs() > send_player.my_score.score {

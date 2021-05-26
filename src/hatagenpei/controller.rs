@@ -54,7 +54,11 @@ impl HatagenpeiController {
             hatagenpeikun_lose += r.win;
             hatagenpeikun_win += r.lose;
         }
-        res.push(WinLose::new(hatagenpeikun_win, hatagenpeikun_lose, &self.bot_name));
+        res.push(WinLose::new(
+            hatagenpeikun_win,
+            hatagenpeikun_lose,
+            &self.bot_name,
+        ));
         return res;
     }
 
@@ -125,10 +129,7 @@ impl HatagenpeiController {
 
             for player in [&(game_log.player1), &(game_log.player2)].iter() {
                 logstr.push(format!("- {}", player.name));
-                logstr.push(format!(
-                    "   - 自分の旗 【{}】",
-                    player.my_score.to_string()
-                ));
+                logstr.push(format!("   - 自分の旗 【{}】", player.my_score.to_string()));
                 logstr.push(format!(
                     "   - 取った旗 【{}】",
                     player.got_score.to_string()
