@@ -5,7 +5,7 @@ const DB_HATAGENPEI_PROGRESS_KEY: &str = "hatagenpei_progress";
 const DB_HATAGENPEI_WINLOSES_KEY: &str = "hatagenpei_winloses";
 
 use postgres::{Client};
-use openssl::ssl::{SslConnector, SslMethod};
+use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
 
 pub struct ScoresInPostgre {
@@ -14,11 +14,12 @@ pub struct ScoresInPostgre {
 
 impl ScoresInPostgre {
     fn make_client(postgre_uri :&str) -> Client {
-        let builder = SslConnector::builder(SslMethod::tls()).expect("failed to call SslConnector::builder");
+        let mut builder = SslConnector::builder(SslMethod::tls()).expect("failed to call SslConnector::builder");
+        builder.set_verify(SslVerifyMode::NONE);
         let connector = MakeTlsConnector::new(builder.build());
         let client =
             Client::connect(&postgre_uri[..], connector).expect("failed to connect postgres");
-        return client
+        return client;
     }
     pub fn new(postgre_uri: &String) -> ScoresInPostgre {
         // postgre に接続
